@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bolão SIPATMIN 2026 ⚽🏐⛱️</title>
+<meta name="description" content="Bolão da gincana SIPATMIN 2026 — futebol, vôlei e beach. Palpites valendo diversão, sem valor monetário.">
+<style>
+  :root{
+    --navy:#0d2149; --navy2:#16326e; --bg:#f2f4f9; --card:#ffffff;
+    --txt:#1c2333; --mut:#66708a; --line:#e3e7f0;
+    --ok:#12B76A; --err:#e5484d; --warn:#f5a623;
+    --rad:14px; --sh:0 2px 10px rgba(13,33,73,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding-bottom:60px}
+  header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:22px 16px 14px;text-align:center}
+  header h1{font-size:1.45rem;letter-spacing:.5px}
+  header .sub{font-size:.8rem;opacity:.85;margin-top:4px}
+  header .disclaimer{display:inline-block;margin-top:10px;font-size:.68rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:4px 12px;border-radius:99px}
+  .wrap{max-width:640px;margin:0 auto;padding:14px}
+  .tabs{display:flex;gap:8px;margin:6px 0 14px}
+  .tabs button{flex:1;padding:11px 4px;border:none;border-radius:10px;background:#fff;color:var(--mut);font-weight:700;font-size:.85rem;cursor:pointer;box-shadow:var(--sh)}
+  .tabs button.on{background:var(--navy);color:#fff}
+  .filtros{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .filtros button{border:1.5px solid var(--line);background:#fff;color:var(--mut);font-weight:700;font-size:.72rem;padding:7px 13px;border-radius:99px;cursor:pointer;font-family:inherit}
+  .filtros button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .idbar{background:#fff;border-radius:var(--rad);box-shadow:var(--sh);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .idbar .avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;flex-shrink:0}
+  .idbar .who{flex:1;min-width:0}
+  .idbar .who b{display:block;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .idbar .who small{color:var(--mut);font-size:.72rem}
+  .idbar a{font-size:.72rem;color:var(--navy2);cursor:pointer;text-decoration:underline;white-space:nowrap}
+  .card{background:var(--card);border-radius:var(--rad);box-shadow:var(--sh);padding:16px;margin-bottom:14px}
+  .jogo-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+  .jogo-head .nome{font-weight:800;font-size:.95rem}
+  .badge{font-size:.66rem;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
+  .badge.aberto{background:#e7f7ee;color:#0c7a45}
+  .badge.travado{background:#fdeaea;color:#b3272c}
+  .badge.fim{background:#eef1f8;color:var(--navy2)}
+  .jogo-data{font-size:.74rem;color:var(--mut);margin-bottom:12px}
+  .versus{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
+  .time-btn{border:2px solid var(--line);border-radius:12px;background:#fff;padding:12px 6px;cursor:pointer;text-align:center;transition:transform .08s,border-color .15s;font-family:inherit}
+  .time-btn:active{transform:scale(.97)}
+  .time-btn .sigla{display:inline-flex;width:36px;height:36px;border-radius:50%;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.68rem;margin-bottom:6px}
+  .time-btn .tn{display:block;font-size:.76rem;font-weight:700;line-height:1.15}
+  .time-btn:disabled{cursor:default;opacity:.9}
+  .empate-btn{align-self:center;border:2px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;cursor:pointer;font-weight:800;font-size:.72rem;color:var(--mut);font-family:inherit}
+  .empate-btn.sel{border-color:var(--navy);color:var(--navy);background:#eef1f8}
+  .empate-btn:disabled{cursor:default}
+  .meu-palpite{margin-top:10px;font-size:.76rem;color:var(--mut);text-align:center}
+  .meu-palpite b{color:var(--txt)}
+  .resultado{margin-top:10px;text-align:center;font-size:.82rem;font-weight:700}
+  .resultado.acertou{color:var(--ok)} .resultado.errou{color:var(--err)}
+  .rk-row{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .rk-row:last-child{border-bottom:none}
+  .rk-pos{width:30px;text-align:center;font-weight:800;font-size:.9rem;color:var(--mut);flex-shrink:0}
+  .rk-nome{flex:1;min-width:0}
+  .rk-nome b{display:block;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rk-pts{text-align:right;flex-shrink:0}
+  .rk-pts b{font-size:1.05rem}
+  .rk-pts small{display:block;color:var(--mut);font-size:.66rem}
+  .frm label{display:block;font-size:.74rem;font-weight:700;color:var(--mut);margin:10px 0 4px}
+  .frm input[type=text],.frm input[type=datetime-local],.frm input[type=email],.frm input[type=password],.frm select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:.9rem;font-family:inherit;background:#fff}
+  .frm input[type=color]{width:46px;height:42px;border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:3px;cursor:pointer}
+  .frm .row2{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+  .frm .x{text-align:center;font-weight:800;color:var(--mut)}
+  .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.8rem}
+  .btn{display:inline-block;border:none;border-radius:10px;padding:11px 18px;font-weight:800;font-size:.85rem;cursor:pointer;font-family:inherit}
+  .btn.primary{background:var(--navy);color:#fff}
+  .btn.ghost{background:#eef1f8;color:var(--navy2)}
+  .btn.danger{background:#fdeaea;color:#b3272c}
+  .btn.small{padding:7px 12px;font-size:.72rem;border-radius:8px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .time-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}
+  .time-row:last-child{border-bottom:none}
+  .time-row .dot{width:22px;height:22px;border-radius:50%;flex-shrink:0}
+  .time-row b{flex:1;font-size:.86rem;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .adm-jogo{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .adm-jogo .top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+  .adm-jogo .top b{font-size:.86rem}
+  .adm-jogo .info{font-size:.72rem;color:var(--mut);margin-bottom:8px}
+  .adm-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .adm-acts select{padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:.72rem;font-family:inherit}
+  .empty{text-align:center;color:var(--mut);font-size:.85rem;padding:30px 10px}
+  .empty .big{font-size:2.2rem;display:block;margin-bottom:8px}
+  .modal-bg{position:fixed;inset:0;background:rgba(13,33,73,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:400px}
+  .modal h2{font-size:1.05rem;margin-bottom:4px}
+  .modal p{font-size:.78rem;color:var(--mut);margin-bottom:8px}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 20px;border-radius:99px;font-size:.8rem;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .25s;z-index:99;max-width:92vw;text-align:center}
+  #toast.show{opacity:1}
+  footer{text-align:center;font-size:.66rem;color:var(--mut);padding:20px 14px}
+  footer a{color:var(--mut);cursor:pointer}
+  .demo-banner{background:#fff6e5;border:1px solid #f5d79b;color:#8a6100;font-size:.72rem;border-radius:10px;padding:8px 12px;text-align:center;margin-bottom:12px;display:none}
+  .sync{font-size:.66rem;color:var(--mut);text-align:center;margin:-6px 0 10px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏅 Bolão SIPATMIN 2026</h1>
+  <div class="sub">Futebol ⚽ · Vôlei 🏐 · Beach ⛱️</div>
+  <div class="disclaimer">🎉 Brincadeira interna — sem apostas em dinheiro, sem valor monetário</div>
+</header>
+
+<div class="wrap">
+  <div class="demo-banner" id="demoBanner">⚠️ Modo demonstração: os dados ficam só neste aparelho (backend ainda não configurado).</div>
+
+  <div class="tabs">
+    <button id="tabJogos" class="on" onclick="abrirTab('jogos')">🎯 Jogos</button>
+    <button id="tabRanking" onclick="abrirTab('ranking')">🏆 Ranking</button>
+  </div>
+
+  <div class="idbar" id="idbar" style="display:none">
+    <div class="avatar" id="idAvatar">?</div>
+    <div class="who"><b id="idNome"></b><small>palpiteiro(a) oficial 🍀</small></div>
+    <a onclick="abrirIdentidade()">trocar nome</a>
+  </div>
+
+  <div class="sync" id="syncInfo"></div>
+
+  <div id="viewJogos"></div>
+  <div id="viewRanking" style="display:none"></div>
+  <div id="viewAdmin" style="display:none"></div>
+</div>
+
+<!-- modal identidade -->
+<div class="modal-bg" id="modalId">
+  <div class="modal frm">
+    <h2>Quem é você? 👋</h2>
+    <p>Seu nome aparece no ranking dos palpiteiros. Use seu nome verdadeiro — o prêmio é a glória! 😄</p>
+    <label>Seu nome completo</label>
+    <input type="text" id="inNome" maxlength="50" placeholder="Ex.: Maria da Silva">
+    <div style="margin-top:16px;text-align:right">
+      <button class="btn primary" onclick="salvarIdentidade()">Salvar ✔</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal login admin -->
+<div class="modal-bg" id="modalAdm">
+  <div class="modal frm">
+    <h2>🔐 Acesso do organizador</h2>
+    <p>Área restrita para cadastrar times, jogos e lançar resultados.</p>
+    <label>E-mail</label>
+    <input type="email" id="admEmail" autocomplete="username">
+    <label>Senha</label>
+    <input type="password" id="admSenha" autocomplete="current-password">
+    <div style="margin-top:16px;display:flex;justify-content:space-between">
+      <button class="btn ghost" onclick="fecharModal('modalAdm')">Cancelar</button>
+      <button class="btn primary" id="btnLogin" onclick="loginAdmin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<footer>
+  Bolão da SIPATMIN 2026 · Aura Minerals — Borborema · brincadeira sem valor monetário<br>
+  <a onclick="abrirAdmin()">área do organizador</a>
+</footer>
+
+<script>
+/* ================= CONFIG (Firebase — projeto próprio do bolão) =================
+   A apiKey do Firebase é um identificador público de projeto (não é segredo);
+   a proteção real são as Security Rules do Firestore (ver SETUP-APOSTAS.md). */
+const CFG = {
+  apiKey:    'COLE_AQUI',
+  projectId: 'COLE_AQUI'
+};
+const DEMO = CFG.projectId === 'COLE_AQUI';
+
+const EMPATE = 'Empate';
+const MODALIDADES = { 'Futebol':'⚽', 'Vôlei':'🏐', 'Beach':'⛱️' };
+const COL_TIMES = 'ap_times', COL_JOGOS = 'ap_jogos', COL_PALPITES = 'ap_palpites';
+const POLL_MS = 30000;
+const PALETA = ['#3560B0','#12B76A','#FF6A00','#8B5CF6','#E5484D','#0EA5B7','#D4A017','#EC4899'];
+
+/* ================= estado ================= */
+let times = [];      // [{_id,nome,cor}]
+let jogos = [];      // [{_id,nome,timeA,timeB,dataHora,travado,permiteEmpate,vencedor,ordem}]
+let palpites = [];   // [{_id,jogoId,nome,palpite,atualizadoEm}]
+let eu = null;       // {nome}
+let adm = null;      // {idToken,refreshToken,exp,email}
+let tabAtual = 'jogos';
+let filtroMod = 'Todos';
+
+/* ================= util ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function slug(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function toast(msg, ms=2600){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), ms); }
+function fmtData(iso){ if(!iso) return '—'; const d=new Date(iso); return d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function jogoFechado(j){ return !!j.vencedor || j.travado || (j.dataHora && Date.now() >= new Date(j.dataHora).getTime()); }
+function tempoRestante(j){
+  if(!j.dataHora) return '';
+  const ms = new Date(j.dataHora).getTime() - Date.now();
+  if(ms<=0) return '';
+  const h = Math.floor(ms/3600000), m = Math.floor(ms%3600000/60000);
+  if(h>=48) return 'fecha em '+Math.floor(h/24)+' dias';
+  if(h>=1)  return 'fecha em '+h+'h'+String(m).padStart(2,'0');
+  return 'fecha em '+m+' min ⏳';
+}
+function timePorNome(nome){ return times.find(t=>t.nome===nome) || null; }
+function corDe(nome){ const t=timePorNome(nome); return t? t.cor : '#66708a'; }
+function siglaDe(nome){ const p=String(nome).trim().split(/\s+/); return (p.length>1? p[0][0]+p[1][0]+(p[2]?p[2][0]:'') : nome.slice(0,3)).toUpperCase(); }
+function corPessoa(nome){ let h=0; for(const c of nome) h=(h*31+c.charCodeAt(0))>>>0; return PALETA[h%PALETA.length]; }
+function fecharModal(id){ $(id).classList.remove('show'); }
+
+/* ================= Firestore via REST (sem SDK — só googleapis.com) ================= */
+const FS_BASE = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents`;
+
+function fsVal(v){
+  if(v===null||v===undefined) return {nullValue:null};
+  if(typeof v==='boolean') return {booleanValue:v};
+  if(typeof v==='number') return Number.isInteger(v) ? {integerValue:String(v)} : {doubleValue:v};
+  if(v instanceof Date) return {timestampValue:v.toISOString()};
+  return {stringValue:String(v)};
+}
+function fsEnc(obj){ const f={}; for(const k in obj) f[k]=fsVal(obj[k]); return {fields:f}; }
+function fsDec(doc){
+  const o = {_id: doc.name.split('/').pop()}, f = doc.fields||{};
+  for(const k in f){ const v=f[k];
+    o[k] = 'stringValue'   in v ? v.stringValue
+         : 'integerValue'  in v ? Number(v.integerValue)
+         : 'doubleValue'   in v ? v.doubleValue
+         : 'booleanValue'  in v ? v.booleanValue
+         : 'timestampValue'in v ? v.timestampValue
+         : null;
+  }
+  return o;
+}
+async function fsFetch(url, opts={}, comAuth=false){
+  opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  if(comAuth){
+    const tk = await tokenAdmin();
+    if(!tk) throw new Error('Sessão do organizador expirou — entre de novo.');
+    opts.headers['Authorization'] = 'Bearer '+tk;
+  }
+  const r = await fetch(url, opts);
+  if(!r.ok){
+    let msg = 'HTTP '+r.status;
+    try{ const j = await r.json(); msg = (j.error && j.error.message) || msg; }catch(e){}
+    if(r.status===403) msg = comAuth? 'Permissão negada (sessão do organizador pode ter expirado)' : 'Palpite recusado — este jogo já fechou. 🔒';
+    throw new Error(msg);
+  }
+  return r.status===200 ? r.json() : null;
+}
+async function fsListar(col){
+  let docs = [], pageToken = '';
+  do{
+    const url = `${FS_BASE}/${col}?pageSize=300&key=${CFG.apiKey}` + (pageToken ? '&pageToken='+encodeURIComponent(pageToken) : '');
+    const j = await fsFetch(url);
+    docs = docs.concat((j.documents||[]).map(fsDec));
+    pageToken = j.nextPageToken || '';
+  }while(pageToken);
+  return docs;
+}
+async function fsSalvar(col, id, data, comAuth){
+  const url = `${FS_BASE}/${col}/${encodeURIComponent(id)}?key=${CFG.apiKey}`;
+  return fsFetch(url, {method:'PATCH', body: JSON.stringify(fsEnc(data))}, comAuth);
+}
+async function fsExcluir(col, id, comAuth){
+  const url = `${FS_BASE}/${col}/${encodeURIComponent(id)}?key=${CFG.apiKey}`;
+  return fsFetch(url, {method:'DELETE'}, comAuth);
+}
+
+/* ---- auth do organizador (Firebase Auth REST) ---- */
+async function tokenAdmin(){
+  if(!adm) return null;
+  if(DEMO) return adm.idToken;
+  if(Date.now() < adm.exp - 60000) return adm.idToken;
+  try{
+    const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${CFG.apiKey}`, {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(adm.refreshToken)
+    });
+    if(!r.ok) throw 0;
+    const j = await r.json();
+    adm.idToken = j.id_token; adm.refreshToken = j.refresh_token;
+    adm.exp = Date.now() + Number(j.expires_in)*1000;
+    sessionStorage.setItem('ap_adm', JSON.stringify(adm));
+    return adm.idToken;
+  }catch(e){ adm=null; sessionStorage.removeItem('ap_adm'); return null; }
+}
+async function loginAdmin(){
+  const email = $('admEmail').value.trim(), senha = $('admSenha').value;
+  if(!email || !senha){ toast('Preencha e-mail e senha'); return; }
+  $('btnLogin').disabled = true;
+  try{
+    if(DEMO){
+      adm = {idToken:'demo', refreshToken:'demo', exp: Date.now()+3600e3, email};
+    }else{
+      const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CFG.apiKey}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, password: senha, returnSecureToken:true})
+      });
+      const j = await r.json();
+      if(!r.ok){
+        const cod = (j.error && j.error.message) || '';
+        throw new Error(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(cod) ? 'E-mail ou senha incorretos' : 'Falha no login: '+(cod||r.status));
+      }
+      adm = {idToken:j.idToken, refreshToken:j.refreshToken, exp: Date.now()+Number(j.expiresIn)*1000, email};
+    }
+    sessionStorage.setItem('ap_adm', JSON.stringify(adm));
+    $('admSenha').value='';
+    fecharModal('modalAdm');
+    toast('Bem-vindo, organizador! 🔓');
+    abrirTab('admin');
+  }catch(e){ toast(e.message, 4000); }
+  finally{ $('btnLogin').disabled = false; }
+}
+function sairAdmin(){ adm=null; sessionStorage.removeItem('ap_adm'); toast('Sessão encerrada'); abrirTab('jogos'); }
+
+/* ================= modo demonstração (sem backend) ================= */
+function demoLer(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+function demoGravar(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+function demoSeed(){
+  if(localStorage.getItem('ap_demo_seed3')) return;
+  const base = Date.now();
+  demoGravar('ap_demo_times', [
+    {_id:'t1', nome:'Time Exemplo A', cor:'#3560B0'},
+    {_id:'t2', nome:'Time Exemplo B', cor:'#FF6A00'}
+  ]);
+  demoGravar('ap_demo_jogos', [
+    {_id:'demo1', nome:'Demonstração — Futebol', modalidade:'Futebol', timeA:'Time Exemplo A', timeB:'Time Exemplo B', dataHora:new Date(base+2*864e5).toISOString(), travado:false, permiteEmpate:true, vencedor:null, ordem:1},
+    {_id:'demo2', nome:'Demonstração — Vôlei', modalidade:'Vôlei', timeA:'Time Exemplo A', timeB:'Time Exemplo B', dataHora:new Date(base+3*864e5).toISOString(), travado:false, permiteEmpate:false, vencedor:null, ordem:2}
+  ]);
+  demoGravar('ap_demo_palpites', []);
+  localStorage.setItem('ap_demo_seed3','1');
+}
+
+/* ================= dados ================= */
+async function carregar(silencioso){
+  try{
+    if(DEMO){
+      demoSeed();
+      times = demoLer('ap_demo_times'); jogos = demoLer('ap_demo_jogos'); palpites = demoLer('ap_demo_palpites');
+    }else{
+      const [t,j,p] = await Promise.all([fsListar(COL_TIMES), fsListar(COL_JOGOS), fsListar(COL_PALPITES)]);
+      times = t; jogos = j; palpites = p;
+    }
+    times.sort((a,b)=> a.nome.localeCompare(b.nome,'pt-BR'));
+    jogos.sort((a,b)=> (a.dataHora||'').localeCompare(b.dataHora||'') || (a.ordem||0)-(b.ordem||0));
+    $('syncInfo').textContent = DEMO ? '' : '✔ atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    render();
+  }catch(e){
+    if(!silencioso) toast('Erro ao carregar: '+e.message, 4000);
+    $('syncInfo').textContent = '⚠ sem conexão com o servidor';
+  }
+}
+async function salvarPalpite(jogoId, escolha){
+  if(!eu){ abrirIdentidade(); return; }
+  const j = jogos.find(x=>x._id===jogoId);
+  if(!j || jogoFechado(j)){ toast('⏱ Palpites deste jogo já fecharam!'); carregar(true); return; }
+  const id = jogoId+'__'+slug(eu.nome);
+  const dado = { jogoId, nome:eu.nome, palpite:escolha, atualizadoEm:new Date() };
+  try{
+    if(DEMO){
+      const lista = demoLer('ap_demo_palpites').filter(p=>p._id!==id);
+      lista.push(Object.assign({_id:id}, dado, {atualizadoEm:new Date().toISOString()}));
+      demoGravar('ap_demo_palpites', lista);
+    }else{
+      await fsSalvar(COL_PALPITES, id, dado, false);
+    }
+    toast(escolha===EMPATE ? '🤝 Palpite: empate!' : '⚽ Palpite salvo: '+escolha+'!');
+    carregar(true);
+  }catch(e){ toast('Não foi possível salvar: '+e.message, 4000); }
+}
+
+/* ================= identidade ================= */
+function carregarIdentidade(){
+  try{ eu = JSON.parse(localStorage.getItem('ap_eu')); }catch(e){ eu=null; }
+  if(eu && !eu.nome) eu = null;
+  renderIdBar();
+}
+function renderIdBar(){
+  if(!eu){ $('idbar').style.display='none'; return; }
+  $('idbar').style.display='flex';
+  $('idAvatar').textContent = eu.nome.trim()[0].toUpperCase();
+  $('idAvatar').style.background = corPessoa(eu.nome);
+  $('idNome').textContent = eu.nome;
+}
+function abrirIdentidade(){
+  $('inNome').value = eu ? eu.nome : '';
+  $('modalId').classList.add('show');
+  setTimeout(()=>$('inNome').focus(), 100);
+}
+function salvarIdentidade(){
+  const nome = $('inNome').value.trim().replace(/\s+/g,' ');
+  if(nome.length < 5 || !nome.includes(' ')){ toast('Digite seu nome completo 🙂'); return; }
+  eu = {nome};
+  localStorage.setItem('ap_eu', JSON.stringify(eu));
+  fecharModal('modalId');
+  renderIdBar();
+  render();
+  toast('Pronto, '+nome.split(' ')[0]+'! Bons palpites 🍀');
+}
+
+/* ================= render ================= */
+function abrirTab(t){
+  tabAtual = t;
+  $('tabJogos').classList.toggle('on', t==='jogos');
+  $('tabRanking').classList.toggle('on', t==='ranking');
+  $('viewJogos').style.display   = t==='jogos'   ? '' : 'none';
+  $('viewRanking').style.display = t==='ranking' ? '' : 'none';
+  $('viewAdmin').style.display   = t==='admin'   ? '' : 'none';
+  render();
+}
+function render(){
+  if(tabAtual==='jogos') renderJogos();
+  else if(tabAtual==='ranking') renderRanking();
+  else if(tabAtual==='admin') renderAdmin();
+}
+function meuPalpite(jogoId){
+  if(!eu) return null;
+  return palpites.find(p=>p._id === jogoId+'__'+slug(eu.nome)) || null;
+}
+function btnTime(j, nomeTime, fechado, sel){
+  const cor = corDe(nomeTime);
+  const st = sel ? `border-color:${cor};background:${cor}14` : '';
+  return `<button class="time-btn" style="${st}" ${fechado?'disabled':''} onclick="salvarPalpite('${esc(j._id)}','${esc(nomeTime).replace(/'/g,"\\'")}')">
+    <span class="sigla" style="background:${cor}">${esc(siglaDe(nomeTime))}</span>
+    <span class="tn">${esc(nomeTime)}</span>${sel?'<span style="font-size:.68rem;color:'+cor+';font-weight:800">✔ seu palpite</span>':''}
+  </button>`;
+}
+function modDe(j){ return MODALIDADES[j.modalidade] ? j.modalidade : 'Futebol'; }
+function chipsFiltro(){
+  const ops = ['Todos'].concat(Object.keys(MODALIDADES));
+  return `<div class="filtros">${ops.map(m=>
+    `<button class="${filtroMod===m?'on':''}" onclick="filtroMod='${m}';render()">${m==='Todos'?'🏅 Todos':MODALIDADES[m]+' '+m}</button>`).join('')}</div>`;
+}
+function jogosFiltrados(){ return filtroMod==='Todos' ? jogos : jogos.filter(j=>modDe(j)===filtroMod); }
+function renderJogos(){
+  const v = $('viewJogos');
+  if(!jogos.length){
+    v.innerHTML = `<div class="card empty"><span class="big">📋</span>Os jogos ainda não foram cadastrados.<br>Volte em breve!</div>`;
+    return;
+  }
+  const lista = jogosFiltrados();
+  if(!lista.length){
+    v.innerHTML = chipsFiltro() + `<div class="card empty"><span class="big">${MODALIDADES[filtroMod]||'📋'}</span>Nenhum jogo de ${esc(filtroMod)} cadastrado ainda.</div>`;
+    return;
+  }
+  v.innerHTML = chipsFiltro() + lista.map(j=>{
+    const fechado = jogoFechado(j);
+    const meu = meuPalpite(j._id);
+    const sel = meu ? meu.palpite : null;
+    let badge, extra='';
+    if(j.vencedor){
+      badge = `<span class="badge fim">🏁 Encerrado</span>`;
+      const txtV = j.vencedor===EMPATE ? '🤝 Deu empate!' : '🏆 Venceu: <b>'+esc(j.vencedor)+'</b>';
+      extra = `<div class="resultado" style="color:${j.vencedor===EMPATE?'var(--mut)':corDe(j.vencedor)}">${txtV}</div>`;
+      if(sel) extra += `<div class="resultado ${sel===j.vencedor?'acertou':'errou'}">${sel===j.vencedor?'✅ Você acertou!':'❌ Você palpitou '+(sel===EMPATE?'empate':esc(sel))}</div>`;
+    }else if(fechado){
+      badge = `<span class="badge travado">🔒 Palpites encerrados</span>`;
+      extra = sel ? `<div class="meu-palpite">Seu palpite: <b>${sel===EMPATE?'🤝 Empate':esc(sel)}</b> — aguardando o apito final…</div>`
+                  : `<div class="meu-palpite">Você não palpitou neste jogo 😅</div>`;
+    }else{
+      badge = `<span class="badge aberto">🟢 Aberto · ${tempoRestante(j)||'palpite já!'}</span>`;
+      extra = sel ? `<div class="meu-palpite">Pode trocar o palpite até fechar 😉</div>`
+                  : `<div class="meu-palpite">Toque num time${j.permiteEmpate!==false?' (ou no empate)':''} para palpitar</div>`;
+    }
+    const nPalp = palpites.filter(p=>p.jogoId===j._id).length;
+    const empateBtn = j.permiteEmpate!==false
+      ? `<button class="empate-btn ${sel===EMPATE?'sel':''}" ${fechado?'disabled':''} onclick="salvarPalpite('${esc(j._id)}','${EMPATE}')">🤝<br>EMPATE</button>`
+      : `<div class="frm x">✕</div>`;
+    return `<div class="card">
+      <div class="jogo-head"><span class="nome">${MODALIDADES[modDe(j)]} ${esc(j.nome||'Jogo')}</span>${badge}</div>
+      <div class="jogo-data">${MODALIDADES[modDe(j)]} ${esc(modDe(j))} · 📅 ${fmtData(j.dataHora)} · ${nPalp} palpite${nPalp===1?'':'s'}</div>
+      <div class="versus">
+        ${btnTime(j, j.timeA, fechado, sel===j.timeA)}
+        ${empateBtn}
+        ${btnTime(j, j.timeB, fechado, sel===j.timeB)}
+      </div>
+      ${extra}
+    </div>`;
+  }).join('');
+}
+function renderRanking(){
+  const v = $('viewRanking');
+  const consid = jogosFiltrados();
+  const encerrados = consid.filter(j=>j.vencedor);
+  const mapa = {};
+  palpites.forEach(p=>{
+    if(!consid.some(x=>x._id===p.jogoId)) return;
+    const k = slug(p.nome);
+    if(!mapa[k]) mapa[k] = {nome:p.nome, acertos:0, dados:0};
+    mapa[k].dados++;
+    const j = encerrados.find(x=>x._id===p.jogoId);
+    if(j && j.vencedor===p.palpite) mapa[k].acertos++;
+  });
+  const lista = Object.values(mapa).sort((a,b)=> b.acertos-a.acertos || b.dados-a.dados || a.nome.localeCompare(b.nome,'pt-BR'));
+  if(!lista.length){
+    v.innerHTML = chipsFiltro() + `<div class="card empty"><span class="big">🏆</span>Ninguém palpitou ${filtroMod==='Todos'?'ainda':'em jogos de '+esc(filtroMod)}.<br>Seja a primeira pessoa!</div>`;
+    return;
+  }
+  const medalha = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'º';
+  v.innerHTML = chipsFiltro() + `<div class="card">
+    <div style="font-weight:800;margin-bottom:6px">🏆 Ranking dos palpiteiros${filtroMod==='Todos'?'':' — '+MODALIDADES[filtroMod]+' '+esc(filtroMod)}</div>
+    <div style="font-size:.72rem;color:var(--mut);margin-bottom:8px">${encerrados.length} jogo${encerrados.length===1?'':'s'} com resultado · desempate: quem palpitou em mais jogos</div>
+    ${lista.map((r,i)=>`<div class="rk-row">
+      <div class="rk-pos">${medalha(i)}</div>
+      <div class="rk-nome"><b>${esc(r.nome)}</b></div>
+      <div class="rk-pts"><b>${r.acertos}</b><small>${r.dados} palpite${r.dados===1?'':'s'}</small></div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ================= admin ================= */
+let editandoJogo = null, editandoTime = null;
+function abrirAdmin(){
+  if(adm){ abrirTab('admin'); return; }
+  $('modalAdm').classList.add('show');
+}
+function renderAdmin(){
+  const v = $('viewAdmin');
+  if(!adm){ v.innerHTML=''; abrirTab('jogos'); return; }
+  const ft = editandoTime || {};
+  const fj = editandoJogo || {};
+  const opTimes = sel => times.map(t=>`<option ${sel===t.nome?'selected':''}>${esc(t.nome)}</option>`).join('');
+  v.innerHTML = `
+  <div class="card frm">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b>${editandoTime? '✏️ Editar time' : '⚽ Times do bolão'}</b>
+      <button class="btn ghost small" onclick="sairAdmin()">Sair 🔒</button>
+    </div>
+    <label>Nome do time + cor</label>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="tNome" maxlength="40" placeholder="Ex.: Furacão da Britagem" value="${esc(ft.nome||'')}" style="flex:1">
+      <input type="color" id="tCor" value="${ft.cor||PALETA[times.length%PALETA.length]}">
+      <button class="btn primary" onclick="salvarTime()">${editandoTime?'Salvar':'＋'}</button>
+      ${editandoTime? '<button class="btn ghost" onclick="editandoTime=null;renderAdmin()">✕</button>':''}
+    </div>
+    <div style="margin-top:10px">
+      ${times.length? times.map(t=>`<div class="time-row">
+          <span class="dot" style="background:${t.cor}"></span><b>${esc(t.nome)}</b>
+          <button class="btn ghost small" onclick="editarTime('${esc(t._id)}')">✏️</button>
+          <button class="btn danger small" onclick="excluirTime('${esc(t._id)}')">🗑</button>
+        </div>`).join('') : '<div class="empty" style="padding:14px">Cadastre os times primeiro — os jogos usam esta lista.</div>'}
+    </div>
+  </div>
+  <div class="card frm">
+    <b>${editandoJogo? '✏️ Editar jogo' : '➕ Novo jogo'}</b>
+    <label>Modalidade</label>
+    <select id="jMod" onchange="$('jEmpate').checked = this.value==='Futebol'">${Object.keys(MODALIDADES).map(m=>`<option ${(fj.modalidade||'Futebol')===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
+    <label>Nome do jogo</label>
+    <input type="text" id="jNome" maxlength="60" placeholder="Ex.: Jogo 1 — Fase de grupos" value="${esc(fj.nome||'')}">
+    <label>Confronto</label>
+    <div class="row2">
+      <select id="jTimeA" ${times.length<2?'disabled':''}>${opTimes(fj.timeA)}</select>
+      <div class="x">×</div>
+      <select id="jTimeB" ${times.length<2?'disabled':''}>${times.map((t,i)=>`<option ${fj.timeB===t.nome||(!fj.timeB&&i===1)?'selected':''}>${esc(t.nome)}</option>`).join('')}</select>
+    </div>
+    ${times.length<2? '<p style="font-size:.72rem;color:var(--warn);margin-top:6px">⚠ Cadastre pelo menos 2 times acima para montar um jogo.</p>':''}
+    <label>Data e hora do jogo (palpites travam sozinhos neste horário)</label>
+    <input type="datetime-local" id="jData" value="${fj.dataHora? new Date(new Date(fj.dataHora).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}">
+    <div class="check"><input type="checkbox" id="jEmpate" ${editandoJogo? (fj.permiteEmpate===false?'':'checked') : ((fj.modalidade||'Futebol')==='Futebol'?'checked':'')}><label for="jEmpate" style="margin:0">Permitir palpite de empate 🤝 (vôlei e beach normalmente não têm)</label></div>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+      ${editandoJogo? '<button class="btn ghost" onclick="editandoJogo=null;renderAdmin()">Cancelar</button>':''}
+      <button class="btn primary" onclick="salvarJogo()" ${times.length<2?'disabled':''}>${editandoJogo?'Salvar alterações':'Cadastrar jogo'} ✔</button>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <b>📋 Jogos cadastrados (${jogos.length})</b>
+      <button class="btn ghost small" onclick="baixarCSV()">⬇ Palpites (CSV)</button>
+    </div>
+    ${jogos.length? jogos.map(j=>{
+      const n = palpites.filter(p=>p.jogoId===j._id).length;
+      const fechado = jogoFechado(j);
+      const opcoes = [j.timeA, j.timeB].concat(j.permiteEmpate!==false?[EMPATE]:[]);
+      return `<div class="adm-jogo">
+        <div class="top"><b>${MODALIDADES[modDe(j)]} ${esc(j.nome||'Jogo')}</b>
+          ${j.vencedor? `<span class="badge fim">🏁 ${j.vencedor===EMPATE?'Empate':esc(j.vencedor)}</span>`
+            : fechado? '<span class="badge travado">🔒 travado</span>' : '<span class="badge aberto">🟢 aberto</span>'}
+        </div>
+        <div class="info">${esc(j.timeA)} × ${esc(j.timeB)} · 📅 ${fmtData(j.dataHora)} · ${n} palpite${n===1?'':'s'}${j.permiteEmpate===false?' · sem empate':''}</div>
+        <div class="adm-acts">
+          ${!j.vencedor? `<button class="btn ${j.travado?'ghost':'danger'} small" onclick="alternarTrava('${esc(j._id)}')">${j.travado?'🔓 Reabrir':'🔒 Travar agora'}</button>`:''}
+          ${!j.vencedor? `<select id="venc_${esc(j._id)}"><option value="">— resultado —</option>${opcoes.map(o=>`<option>${esc(o)}</option>`).join('')}</select>
+            <button class="btn primary small" onclick="definirVencedor('${esc(j._id)}')">🏁 Lançar</button>`
+            : `<button class="btn ghost small" onclick="limparResultado('${esc(j._id)}')">↩ Limpar resultado</button>`}
+          <button class="btn ghost small" onclick="editarJogo('${esc(j._id)}')">✏️</button>
+          <button class="btn danger small" onclick="excluirJogo('${esc(j._id)}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">Nenhum jogo ainda — cadastre o primeiro acima. ⚽</div>'}
+  </div>`;
+}
+/* ---- times ---- */
+function timeUsado(nome){ return jogos.some(j=>j.timeA===nome || j.timeB===nome); }
+async function salvarTime(){
+  const nome = $('tNome').value.trim().replace(/\s+/g,' ');
+  const cor = $('tCor').value;
+  if(nome.length < 2){ toast('Digite o nome do time'); return; }
+  const outro = times.find(t=>slug(t.nome)===slug(nome) && (!editandoTime || t._id!==editandoTime._id));
+  if(outro){ toast('Já existe um time com esse nome'); return; }
+  if(editandoTime && editandoTime.nome!==nome && timeUsado(editandoTime.nome)){
+    toast('Esse time já está em jogos — exclua ou edite os jogos antes de renomear. (A cor pode trocar à vontade.)', 4500); return;
+  }
+  const id = editandoTime ? editandoTime._id : 'time-'+slug(nome);
+  try{
+    if(DEMO){
+      const lista = demoLer('ap_demo_times').filter(t=>t._id!==id);
+      lista.push({_id:id, nome, cor});
+      demoGravar('ap_demo_times', lista);
+    }else await fsSalvar(COL_TIMES, id, {nome, cor}, true);
+    editandoTime = null;
+    toast('Time salvo ✔');
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+function editarTime(id){ editandoTime = times.find(t=>t._id===id)||null; renderAdmin(); window.scrollTo({top:0,behavior:'smooth'}); }
+async function excluirTime(id){
+  const t = times.find(x=>x._id===id); if(!t) return;
+  if(timeUsado(t.nome)){ toast('Esse time está em jogos cadastrados — exclua os jogos dele primeiro.', 4000); return; }
+  if(!confirm('Excluir o time "'+t.nome+'"?')) return;
+  try{
+    if(DEMO) demoGravar('ap_demo_times', demoLer('ap_demo_times').filter(x=>x._id!==id));
+    else await fsExcluir(COL_TIMES, id, true);
+    toast('Time excluído');
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+/* ---- jogos ---- */
+async function salvarJogo(){
+  const nome = $('jNome').value.trim();
+  const modalidade = $('jMod').value;
+  const timeA = $('jTimeA').value, timeB = $('jTimeB').value;
+  const dataStr = $('jData').value;
+  if(!nome){ toast('Dê um nome ao jogo'); return; }
+  if(!timeA || !timeB || timeA===timeB){ toast('Escolha dois times diferentes 😅'); return; }
+  if(!dataStr){ toast('Informe data e hora'); return; }
+  const id = editandoJogo ? editandoJogo._id : 'jogo-'+slug(nome)+'-'+Date.now().toString(36);
+  const dado = { nome, modalidade, timeA, timeB, dataHora:new Date(dataStr), travado: editandoJogo? !!editandoJogo.travado : false,
+                 permiteEmpate: $('jEmpate').checked, vencedor: editandoJogo? (editandoJogo.vencedor||null) : null, ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1 };
+  try{
+    if(DEMO){
+      const lista = demoLer('ap_demo_jogos').filter(x=>x._id!==id);
+      lista.push(Object.assign({_id:id}, dado, {dataHora:dado.dataHora.toISOString()}));
+      demoGravar('ap_demo_jogos', lista);
+    }else await fsSalvar(COL_JOGOS, id, dado, true);
+    editandoJogo = null;
+    toast('Jogo salvo ✔');
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+function editarJogo(id){ editandoJogo = jogos.find(j=>j._id===id)||null; renderAdmin(); window.scrollTo({top:0,behavior:'smooth'}); }
+async function alternarTrava(id){
+  const j = jogos.find(x=>x._id===id); if(!j) return;
+  await atualizarJogo(j, {travado: !j.travado}, j.travado? 'Jogo reaberto 🔓' : 'Palpites travados 🔒');
+}
+async function definirVencedor(id){
+  const sel = $('venc_'+id); const v = sel && sel.value;
+  if(!v){ toast('Escolha o resultado no seletor'); return; }
+  if(!confirm('Confirmar resultado: '+v+'? Isso fecha o jogo e pontua o ranking.')) return;
+  const j = jogos.find(x=>x._id===id); if(!j) return;
+  await atualizarJogo(j, {vencedor:v, travado:true}, '🏁 Resultado lançado!');
+}
+async function limparResultado(id){
+  if(!confirm('Limpar o resultado deste jogo? Os pontos dele saem do ranking.')) return;
+  const j = jogos.find(x=>x._id===id); if(!j) return;
+  await atualizarJogo(j, {vencedor:null}, 'Resultado removido');
+}
+async function excluirJogo(id){
+  const j = jogos.find(x=>x._id===id); if(!j) return;
+  const n = palpites.filter(p=>p.jogoId===id).length;
+  if(!confirm('Excluir "'+(j.nome||'jogo')+'"'+(n? ' e os '+n+' palpites dele':'')+'? Não dá pra desfazer.')) return;
+  try{
+    if(DEMO){
+      demoGravar('ap_demo_jogos', demoLer('ap_demo_jogos').filter(x=>x._id!==id));
+      demoGravar('ap_demo_palpites', demoLer('ap_demo_palpites').filter(p=>p.jogoId!==id));
+    }else{
+      await fsExcluir(COL_JOGOS, id, true);
+      const orfaos = palpites.filter(p=>p.jogoId===id);
+      for(const p of orfaos) await fsExcluir(COL_PALPITES, p._id, true);
+    }
+    toast('Jogo excluído');
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+async function atualizarJogo(j, mudancas, msg){
+  const dado = { nome:j.nome, modalidade:modDe(j), timeA:j.timeA, timeB:j.timeB, dataHora:new Date(j.dataHora), travado:!!j.travado,
+                 permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0 };
+  Object.assign(dado, mudancas);
+  try{
+    if(DEMO){
+      const lista = demoLer('ap_demo_jogos').filter(x=>x._id!==j._id);
+      lista.push(Object.assign({_id:j._id}, dado, {dataHora:dado.dataHora.toISOString()}));
+      demoGravar('ap_demo_jogos', lista);
+    }else await fsSalvar(COL_JOGOS, j._id, dado, true);
+    toast(msg);
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+function baixarCSV(){
+  const linhas = [['Modalidade','Jogo','Confronto','Data','Nome','Palpite','Resultado','Acertou','Atualizado em']];
+  palpites.forEach(p=>{
+    const j = jogos.find(x=>x._id===p.jogoId) || {};
+    linhas.push([j.nome? modDe(j):'', j.nome||p.jogoId, (j.timeA||'')+' x '+(j.timeB||''), j.dataHora? fmtData(j.dataHora):'', p.nome, p.palpite,
+                 j.vencedor||'', j.vencedor? (j.vencedor===p.palpite?'SIM':'NÃO'):'', p.atualizadoEm? new Date(p.atualizadoEm).toLocaleString('pt-BR'):'']);
+  });
+  const csv = '﻿'+linhas.map(l=>l.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'bolao-sipatmin-palpites.csv';
+  a.click();
+}
+
+/* ================= init ================= */
+(function(){
+  if(DEMO) $('demoBanner').style.display='block';
+  try{ adm = JSON.parse(sessionStorage.getItem('ap_adm')); }catch(e){ adm=null; }
+  carregarIdentidade();
+  carregar();
+  if(!eu) setTimeout(abrirIdentidade, 600);
+  setInterval(()=>{ if(document.visibilityState==='visible') carregar(true); }, POLL_MS);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') carregar(true); });
+})();
+</script>
+</body>
+</html>
