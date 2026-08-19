@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bolão SIPATMIN 2026 ⚽🏐⛱️</title>
-<meta name="description" content="Bolão da gincana SIPATMIN 2026 — futebol, vôlei e beach. Palpites valendo diversão, sem valor monetário.">
+<title>Bolão SIPATMIN 2026 ⚽🏐🎾</title>
+<meta name="description" content="Bolão da gincana SIPATMIN 2026 — futebol, vôlei e beach tennis. Palpites valendo diversão, sem valor monetário.">
 <style>
   :root{
     --navy:#0d2149; --navy2:#16326e; --bg:#f2f4f9; --card:#ffffff;
@@ -61,7 +61,7 @@
   .rk-pts b{font-size:1.05rem}
   .rk-pts small{display:block;color:var(--mut);font-size:.66rem}
   .frm label{display:block;font-size:.74rem;font-weight:700;color:var(--mut);margin:10px 0 4px}
-  .frm input[type=text],.frm input[type=datetime-local],.frm input[type=email],.frm input[type=password],.frm select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:.9rem;font-family:inherit;background:#fff}
+  .frm input[type=text],.frm input[type=datetime-local],.frm input[type=email],.frm input[type=password],.frm input[type=number],.frm select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:.9rem;font-family:inherit;background:#fff}
   .frm input[type=color]{width:46px;height:42px;border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:3px;cursor:pointer}
   .frm .row2{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
   .frm .x{text-align:center;font-weight:800;color:var(--mut)}
@@ -100,7 +100,7 @@
 
 <header>
   <h1>🏅 Bolão SIPATMIN 2026</h1>
-  <div class="sub">Futebol ⚽ · Vôlei 🏐 · Beach ⛱️</div>
+  <div class="sub">Futebol ⚽ · Vôlei 🏐 · Beach Tennis 🎾</div>
   <div class="disclaimer">🎉 Brincadeira interna — sem apostas em dinheiro, sem valor monetário</div>
 </header>
 
@@ -113,7 +113,7 @@
   <div class="idbar" id="idbar" style="display:none">
     <div class="avatar" id="idAvatar">?</div>
     <div class="who"><b id="idNome"></b><small>palpiteiro(a) oficial 🍀</small></div>
-    <a onclick="abrirIdentidade()">trocar nome</a>
+    <a onclick="sairUser()">sair</a>
   </div>
 
   <div class="sync" id="syncInfo"></div>
@@ -123,15 +123,18 @@
   <div id="viewAdmin" style="display:none"></div>
 </div>
 
-<!-- modal identidade -->
+<!-- modal identidade (login/cadastro do palpiteiro) -->
 <div class="modal-bg" id="modalId">
   <div class="modal frm">
-    <h2>Quem é você? 👋</h2>
-    <p>Seu nome aparece no ranking dos palpiteiros. Use seu nome verdadeiro — o prêmio é a glória! 😄</p>
-    <label>Seu nome completo</label>
-    <input type="text" id="inNome" maxlength="50" placeholder="Ex.: Maria da Silva">
-    <div style="margin-top:16px;text-align:right">
-      <button class="btn primary" onclick="salvarIdentidade()">Salvar ✔</button>
+    <h2>Entre para palpitar 👋</h2>
+    <p>Login no formato <b>nome.setor</b> (ex.: <i>maria.mina</i>) + uma senha sua. Primeira vez? Toque em <b>Criar conta</b>. Seu login aparece no ranking.</p>
+    <label>Login (nome.setor)</label>
+    <input type="text" id="inLogin" maxlength="40" autocomplete="username" placeholder="ex.: maria.beneficiamento" style="text-transform:lowercase">
+    <label>Senha (mínimo 6 caracteres)</label>
+    <input type="password" id="inSenha" autocomplete="current-password">
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:space-between">
+      <button class="btn ghost" id="btnCriar" onclick="autenticar(true)">Criar conta</button>
+      <button class="btn primary" id="btnEntrar" onclick="autenticar(false)">Entrar ✔</button>
     </div>
   </div>
 </div>
@@ -168,7 +171,7 @@ const SB = {
   key: 'sb_publishable_-_jPrgTft2KHfuuAigX_Gw_3kxGR6C1'
 };
 const EMPATE = 'Empate';
-const MODALIDADES = { 'Futebol':'⚽', 'Vôlei':'🏐', 'Beach':'⛱️' };
+const MODALIDADES = { 'Futebol':'⚽', 'Vôlei':'🏐', 'Beach Tennis':'🎾' };
 const COL_TIMES = 'ap_times', COL_JOGOS = 'ap_jogos', COL_PALPITES = 'ap_palpites';
 const POLL_MS = 30000;
 const PALETA = ['#3560B0','#12B76A','#FF6A00','#8B5CF6','#E5484D','#0EA5B7','#D4A017','#EC4899'];
@@ -179,7 +182,7 @@ let jogos = [];        // [{_id,nome,modalidade,timeA,timeB,dataHora,travado,per
 let palpites = [];     // SÓ os palpites do usuário atual (economia de tráfego)
 let contagens = {};    // jogoId -> nº de palpites (view ap_contagens)
 let rankingRows = [];  // ranking agregado no servidor (view ap_ranking)
-let eu = null;       // {nome}
+let eu = null;       // conta do palpiteiro {login, idToken, refreshToken, exp}
 let adm = null;      // {idToken,refreshToken,exp,email}
 let tabAtual = 'jogos';
 let filtroMod = 'Todos';
@@ -213,28 +216,28 @@ function fecharModal(id){ $(id).classList.remove('show'); }
 /* ================= Supabase via REST (sem SDK — única dependência externa: supabase.co) ================= */
 function decTime(r){ return {_id:r.id, nome:r.nome, cor:r.cor}; }
 function decJogo(r){ return {_id:r.id, nome:r.nome, modalidade:r.modalidade, timeA:r.time_a, timeB:r.time_b,
-  dataHora:r.data_hora, travado:!!r.travado, permiteEmpate:!!r.permite_empate, vencedor:r.vencedor, ordem:r.ordem||0}; }
+  dataHora:r.data_hora, travado:!!r.travado, permiteEmpate:!!r.permite_empate, vencedor:r.vencedor, ordem:r.ordem||0, pontos:r.pontos||10}; }
 function decPalpite(r){ return {_id:r.id, jogoId:r.jogo_id, nome:r.nome, palpite:r.palpite, atualizadoEm:r.atualizado_em}; }
 function encRow(col, id, d){
   if(col===COL_TIMES) return {id, nome:d.nome, cor:d.cor};
   if(col===COL_JOGOS) return {id, nome:d.nome, modalidade:d.modalidade||'Futebol', time_a:d.timeA, time_b:d.timeB,
     data_hora:new Date(d.dataHora).toISOString(), travado:!!d.travado, permite_empate:!!d.permiteEmpate,
-    vencedor:d.vencedor||null, ordem:d.ordem||0};
+    vencedor:d.vencedor||null, ordem:d.ordem||0, pontos:d.pontos||10};
   return {id, jogo_id:d.jogoId, nome:d.nome, palpite:d.palpite, atualizado_em:new Date().toISOString()};
 }
 async function sbFetch(path, opts={}, comAuth=false){
   opts.headers = Object.assign({'apikey':SB.key, 'Content-Type':'application/json'}, opts.headers||{});
   let tk = SB.key;
   if(comAuth){
-    tk = await tokenAdmin();
-    if(!tk) throw new Error('Sessão do organizador expirou — entre de novo.');
+    tk = comAuth==='user' ? await tokenUser() : await tokenAdmin();
+    if(!tk) throw new Error(comAuth==='user' ? 'Sua sessão expirou — entre de novo 🙂' : 'Sessão do organizador expirou — entre de novo.');
   }
   opts.headers['Authorization'] = 'Bearer '+tk;
   const r = await fetch(SB.url+path, opts);
   if(!r.ok){
     let msg = 'HTTP '+r.status;
     try{ const j = await r.json(); msg = j.message || j.error_description || j.msg || msg; }catch(e){}
-    if(r.status===401 || r.status===403) msg = comAuth? 'Permissão negada — sessão do organizador expirou? Entre de novo.' : 'Palpite recusado — este jogo já fechou. 🔒';
+    if(r.status===401 || r.status===403) msg = (comAuth && comAuth!=='user')? 'Permissão negada — sessão do organizador expirou? Entre de novo.' : 'Palpite recusado — este jogo já fechou. 🔒';
     if(r.status===404) msg = 'Servidor ainda não configurado (rodar supabase-setup-bolao.sql)';
     throw new Error(msg);
   }
@@ -303,7 +306,7 @@ async function carregar(silencioso){
       sbGet(COL_JOGOS+'?select=*'),
       sbGet('ap_contagens?select=*'),
       sbGet('ap_ranking?select=*'),
-      eu ? sbGet(COL_PALPITES+'?select=*&nome=eq.'+encodeURIComponent(eu.nome)) : Promise.resolve([])
+      eu ? sbGet(COL_PALPITES+'?select=*&nome=eq.'+encodeURIComponent(eu.login)) : Promise.resolve([])
     ]);
     times = t.map(decTime);
     jogos = j.map(decJogo);
@@ -323,42 +326,88 @@ async function salvarPalpite(jogoId, escolha){
   if(!eu){ abrirIdentidade(); return; }
   const j = jogos.find(x=>x._id===jogoId);
   if(!j || jogoFechado(j)){ toast('⏱ Palpites deste jogo já fecharam!'); carregar(true); return; }
-  const id = jogoId+'__'+slug(eu.nome);
-  const dado = { jogoId, nome:eu.nome, palpite:escolha };
+  const id = jogoId+'__'+slug(eu.login);
+  const dado = { jogoId, nome:eu.login, palpite:escolha };
   try{
-    await fsSalvar(COL_PALPITES, id, dado, false);
+    await fsSalvar(COL_PALPITES, id, dado, 'user');
     toast(escolha===EMPATE ? '🤝 Palpite: empate!' : '⚽ Palpite salvo: '+escolha+'!');
     carregar(true);
   }catch(e){ toast('Não foi possível salvar: '+e.message, 4000); }
 }
 
-/* ================= identidade ================= */
+/* ================= identidade (conta do palpiteiro: login nome.setor + senha) ================= */
+const DOM_PALP = '@bolao.sipatmin'; // e-mail fictício, só p/ o Auth (como no placar)
+
 function carregarIdentidade(){
   try{ eu = JSON.parse(localStorage.getItem('ap_eu')); }catch(e){ eu=null; }
-  if(eu && !eu.nome) eu = null;
+  if(eu && (!eu.login || !eu.refreshToken)) eu = null;
   renderIdBar();
 }
 function renderIdBar(){
   if(!eu){ $('idbar').style.display='none'; return; }
   $('idbar').style.display='flex';
-  $('idAvatar').textContent = eu.nome.trim()[0].toUpperCase();
-  $('idAvatar').style.background = corPessoa(eu.nome);
-  $('idNome').textContent = eu.nome;
+  $('idAvatar').textContent = eu.login[0].toUpperCase();
+  $('idAvatar').style.background = corPessoa(eu.login);
+  $('idNome').textContent = eu.login;
 }
 function abrirIdentidade(){
-  $('inNome').value = eu ? eu.nome : '';
+  $('inLogin').value = eu ? eu.login : '';
+  $('inSenha').value = '';
   $('modalId').classList.add('show');
-  setTimeout(()=>$('inNome').focus(), 100);
+  setTimeout(()=>$('inLogin').focus(), 100);
 }
-function salvarIdentidade(){
-  const nome = $('inNome').value.trim().replace(/\s+/g,' ');
-  if(nome.length < 5 || !nome.includes(' ')){ toast('Digite seu nome completo 🙂'); return; }
-  eu = {nome};
-  localStorage.setItem('ap_eu', JSON.stringify(eu));
-  fecharModal('modalId');
-  renderIdBar();
-  render();
-  toast('Pronto, '+nome.split(' ')[0]+'! Bons palpites 🍀');
+async function tokenUser(){
+  if(!eu) return null;
+  if(Date.now() < eu.exp - 60000) return eu.idToken;
+  try{
+    const r = await fetch(SB.url+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: eu.refreshToken})
+    });
+    if(!r.ok) throw 0;
+    const j = await r.json();
+    eu.idToken = j.access_token; eu.refreshToken = j.refresh_token;
+    eu.exp = Date.now() + Number(j.expires_in||3600)*1000;
+    localStorage.setItem('ap_eu', JSON.stringify(eu));
+    return eu.idToken;
+  }catch(e){ eu=null; localStorage.removeItem('ap_eu'); renderIdBar(); return null; }
+}
+async function autenticar(criar){
+  let login = $('inLogin').value.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'');
+  const senha = $('inSenha').value;
+  if(!/^[a-z0-9]+(\.[a-z0-9]+)+$/.test(login) || login.length < 5 || login.length > 40){
+    toast('Login no formato nome.setor (só letras e ponto) 🙂'); return;
+  }
+  if(senha.length < 6){ toast('A senha precisa de pelo menos 6 caracteres'); return; }
+  const email = login + DOM_PALP;
+  $('btnEntrar').disabled = $('btnCriar').disabled = true;
+  try{
+    const url = criar ? SB.url+'/auth/v1/signup' : SB.url+'/auth/v1/token?grant_type=password';
+    const r = await fetch(url, {
+      method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
+      body: JSON.stringify({email, password: senha})
+    });
+    const j = await r.json();
+    if(!r.ok){
+      const cod = (j.error_description || j.msg || '')+'';
+      if(criar && /already|registered|exists/i.test(cod)) throw new Error('Esse login já existe — toque em Entrar 😉');
+      throw new Error(criar ? 'Não deu pra criar: '+(cod||r.status) : 'Login ou senha incorretos (primeira vez? toque em Criar conta)');
+    }
+    if(!j.access_token) throw new Error('Conta criada, mas sem sessão — tente Entrar');
+    eu = {login, idToken:j.access_token, refreshToken:j.refresh_token, exp: Date.now()+Number(j.expires_in||3600)*1000};
+    localStorage.setItem('ap_eu', JSON.stringify(eu));
+    fecharModal('modalId');
+    renderIdBar();
+    toast((criar?'Conta criada! ':'')+'Bons palpites, '+login.split('.')[0]+'! 🍀');
+    carregar(true);
+  }catch(e){ toast(e.message, 4200); }
+  finally{ $('btnEntrar').disabled = $('btnCriar').disabled = false; }
+}
+function sairUser(){
+  eu = null; localStorage.removeItem('ap_eu');
+  renderIdBar(); render();
+  toast('Você saiu — até a próxima!');
 }
 
 /* ================= render ================= */
@@ -378,7 +427,7 @@ function render(){
 }
 function meuPalpite(jogoId){
   if(!eu) return null;
-  return palpites.find(p=>p._id === jogoId+'__'+slug(eu.nome)) || null;
+  return palpites.find(p=>p._id === jogoId+'__'+slug(eu.login)) || null;
 }
 function btnTime(j, nomeTime, fechado, sel){
   const cor = corDe(nomeTime);
@@ -415,7 +464,7 @@ function renderJogos(){
       badge = `<span class="badge fim">🏁 Encerrado</span>`;
       const txtV = j.vencedor===EMPATE ? '🤝 Deu empate!' : '🏆 Venceu: <b>'+esc(j.vencedor)+'</b>';
       extra = `<div class="resultado" style="color:${j.vencedor===EMPATE?'var(--mut)':corDe(j.vencedor)}">${txtV}</div>`;
-      if(sel) extra += `<div class="resultado ${sel===j.vencedor?'acertou':'errou'}">${sel===j.vencedor?'✅ Você acertou!':'❌ Você palpitou '+(sel===EMPATE?'empate':esc(sel))}</div>`;
+      if(sel) extra += `<div class="resultado ${sel===j.vencedor?'acertou':'errou'}">${sel===j.vencedor?'✅ Você acertou! +'+(j.pontos||10)+' pts':'❌ Você palpitou '+(sel===EMPATE?'empate':esc(sel))}</div>`;
     }else if(fechado){
       badge = `<span class="badge travado">🔒 Palpites encerrados</span>`;
       extra = sel ? `<div class="meu-palpite">Seu palpite: <b>${sel===EMPATE?'🤝 Empate':esc(sel)}</b> — aguardando o apito final…</div>`
@@ -431,7 +480,7 @@ function renderJogos(){
       : `<div class="frm x">✕</div>`;
     return `<div class="card">
       <div class="jogo-head"><span class="nome">${MODALIDADES[modDe(j)]} ${esc(j.nome||'Jogo')}</span>${badge}</div>
-      <div class="jogo-data">${MODALIDADES[modDe(j)]} ${esc(modDe(j))} · 📅 ${fmtData(j.dataHora)} · ${nPalp} palpite${nPalp===1?'':'s'}</div>
+      <div class="jogo-data">${MODALIDADES[modDe(j)]} ${esc(modDe(j))} · 📅 ${fmtData(j.dataHora)} · 🎯 vale ${j.pontos||10} pts · ${nPalp} palpite${nPalp===1?'':'s'}</div>
       <div class="versus">
         ${btnTime(j, j.timeA, fechado, sel===j.timeA)}
         ${empateBtn}
@@ -449,11 +498,12 @@ function renderRanking(){
   rankingRows.forEach(r=>{
     if(filtroMod!=='Todos' && r.modalidade!==filtroMod) return;
     const k = slug(r.nome);
-    if(!mapa[k]) mapa[k] = {nome:r.nome, acertos:0, dados:0};
+    if(!mapa[k]) mapa[k] = {nome:r.nome, pontos:0, acertos:0, dados:0};
+    mapa[k].pontos += (r.pontos!=null ? r.pontos : (r.acertos||0)*10);
     mapa[k].acertos += r.acertos;
     mapa[k].dados += r.dados;
   });
-  const lista = Object.values(mapa).sort((a,b)=> b.acertos-a.acertos || b.dados-a.dados || a.nome.localeCompare(b.nome,'pt-BR'));
+  const lista = Object.values(mapa).sort((a,b)=> b.pontos-a.pontos || b.acertos-a.acertos || b.dados-a.dados || a.nome.localeCompare(b.nome,'pt-BR'));
   if(!lista.length){
     v.innerHTML = chipsFiltro() + `<div class="card empty"><span class="big">🏆</span>Ninguém palpitou ${filtroMod==='Todos'?'ainda':'em jogos de '+esc(filtroMod)}.<br>Seja a primeira pessoa!</div>`;
     return;
@@ -461,11 +511,11 @@ function renderRanking(){
   const medalha = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'º';
   v.innerHTML = chipsFiltro() + `<div class="card">
     <div style="font-weight:800;margin-bottom:6px">🏆 Ranking dos palpiteiros${filtroMod==='Todos'?'':' — '+MODALIDADES[filtroMod]+' '+esc(filtroMod)}</div>
-    <div style="font-size:.72rem;color:var(--mut);margin-bottom:8px">${encerrados.length} jogo${encerrados.length===1?'':'s'} com resultado · desempate: quem palpitou em mais jogos</div>
+    <div style="font-size:.72rem;color:var(--mut);margin-bottom:8px">${encerrados.length} jogo${encerrados.length===1?'':'s'} com resultado · acerto vale os pontos do jogo (10 normal, 30 semifinal) · desempate: acertos, depois nº de palpites</div>
     ${lista.map((r,i)=>`<div class="rk-row">
       <div class="rk-pos">${medalha(i)}</div>
       <div class="rk-nome"><b>${esc(r.nome)}</b></div>
-      <div class="rk-pts"><b>${r.acertos}</b><small>${r.dados} palpite${r.dados===1?'':'s'}</small></div>
+      <div class="rk-pts"><b>${r.pontos} pts</b><small>${r.acertos} acerto${r.acertos===1?'':'s'} · ${r.dados} palpite${r.dados===1?'':'s'}</small></div>
     </div>`).join('')}
   </div>`;
 }
@@ -518,6 +568,8 @@ function renderAdmin(){
     ${times.length<2? '<p style="font-size:.72rem;color:var(--warn);margin-top:6px">⚠ Cadastre pelo menos 2 times acima para montar um jogo.</p>':''}
     <label>Data e hora do jogo (palpites travam sozinhos neste horário)</label>
     <input type="datetime-local" id="jData" value="${fj.dataHora? new Date(new Date(fj.dataHora).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16) : ''}">
+    <label>Pontos para quem acertar (10 = normal · 30 = semifinal)</label>
+    <input type="number" id="jPontos" min="1" max="1000" step="1" value="${fj.pontos||10}">
     <div class="check"><input type="checkbox" id="jEmpate" ${editandoJogo? (fj.permiteEmpate===false?'':'checked') : ((fj.modalidade||'Futebol')==='Futebol'?'checked':'')}><label for="jEmpate" style="margin:0">Permitir palpite de empate 🤝 (vôlei e beach normalmente não têm)</label></div>
     <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
       ${editandoJogo? '<button class="btn ghost" onclick="editandoJogo=null;renderAdmin()">Cancelar</button>':''}
@@ -538,7 +590,7 @@ function renderAdmin(){
           ${j.vencedor? `<span class="badge fim">🏁 ${j.vencedor===EMPATE?'Empate':esc(j.vencedor)}</span>`
             : fechado? '<span class="badge travado">🔒 travado</span>' : '<span class="badge aberto">🟢 aberto</span>'}
         </div>
-        <div class="info">${esc(j.timeA)} × ${esc(j.timeB)} · 📅 ${fmtData(j.dataHora)} · ${n} palpite${n===1?'':'s'}${j.permiteEmpate===false?' · sem empate':''}</div>
+        <div class="info">${esc(j.timeA)} × ${esc(j.timeB)} · 📅 ${fmtData(j.dataHora)} · 🎯 ${j.pontos||10} pts · ${n} palpite${n===1?'':'s'}${j.permiteEmpate===false?' · sem empate':''}</div>
         <div class="adm-acts">
           ${!j.vencedor? `<button class="btn ${j.travado?'ghost':'danger'} small" onclick="alternarTrava('${esc(j._id)}')">${j.travado?'🔓 Reabrir':'🔒 Travar agora'}</button>`:''}
           ${!j.vencedor? `<select id="venc_${esc(j._id)}"><option value="">— resultado —</option>${opcoes.map(o=>`<option>${esc(o)}</option>`).join('')}</select>
@@ -590,9 +642,11 @@ async function salvarJogo(){
   if(!nome){ toast('Dê um nome ao jogo'); return; }
   if(!timeA || !timeB || timeA===timeB){ toast('Escolha dois times diferentes 😅'); return; }
   if(!dataStr){ toast('Informe data e hora'); return; }
+  const pontos = Math.min(1000, Math.max(1, parseInt($('jPontos').value, 10) || 10));
   const id = editandoJogo ? editandoJogo._id : 'jogo-'+slug(nome)+'-'+Date.now().toString(36);
   const dado = { nome, modalidade, timeA, timeB, dataHora:new Date(dataStr), travado: editandoJogo? !!editandoJogo.travado : false,
-                 permiteEmpate: $('jEmpate').checked, vencedor: editandoJogo? (editandoJogo.vencedor||null) : null, ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1 };
+                 permiteEmpate: $('jEmpate').checked, vencedor: editandoJogo? (editandoJogo.vencedor||null) : null,
+                 ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1, pontos };
   try{
     await fsSalvar(COL_JOGOS, id, dado, true);
     editandoJogo = null;
@@ -629,7 +683,7 @@ async function excluirJogo(id){
 }
 async function atualizarJogo(j, mudancas, msg){
   const dado = { nome:j.nome, modalidade:modDe(j), timeA:j.timeA, timeB:j.timeB, dataHora:new Date(j.dataHora), travado:!!j.travado,
-                 permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0 };
+                 permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0, pontos:j.pontos||10 };
   Object.assign(dado, mudancas);
   try{
     await fsSalvar(COL_JOGOS, j._id, dado, true);
@@ -641,11 +695,11 @@ async function baixarCSV(){
   let todos = [];
   try{ todos = (await sbGet(COL_PALPITES+'?select=*&order=jogo_id,nome')).map(decPalpite); }
   catch(e){ toast('Erro ao buscar palpites: '+e.message, 4000); return; }
-  const linhas = [['Modalidade','Jogo','Confronto','Data','Nome','Palpite','Resultado','Acertou','Atualizado em']];
+  const linhas = [['Modalidade','Jogo','Confronto','Data','Nome','Palpite','Resultado','Acertou','Pontos','Atualizado em']];
   todos.forEach(p=>{
     const j = jogos.find(x=>x._id===p.jogoId) || {};
     linhas.push([j.nome? modDe(j):'', j.nome||p.jogoId, (j.timeA||'')+' x '+(j.timeB||''), j.dataHora? fmtData(j.dataHora):'', p.nome, p.palpite,
-                 j.vencedor||'', j.vencedor? (j.vencedor===p.palpite?'SIM':'NÃO'):'', p.atualizadoEm? new Date(p.atualizadoEm).toLocaleString('pt-BR'):'']);
+                 j.vencedor||'', j.vencedor? (j.vencedor===p.palpite?'SIM':'NÃO'):'', j.vencedor? (j.vencedor===p.palpite? (j.pontos||10):0):'', p.atualizadoEm? new Date(p.atualizadoEm).toLocaleString('pt-BR'):'']);
   });
   const csv = '﻿'+linhas.map(l=>l.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const a = document.createElement('a');
