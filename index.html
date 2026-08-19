@@ -93,7 +93,6 @@
   #toast.show{opacity:1}
   footer{text-align:center;font-size:.66rem;color:var(--mut);padding:20px 14px}
   footer a{color:var(--mut);cursor:pointer}
-  .demo-banner{background:#fff6e5;border:1px solid #f5d79b;color:#8a6100;font-size:.72rem;border-radius:10px;padding:8px 12px;text-align:center;margin-bottom:12px;display:none}
   .sync{font-size:.66rem;color:var(--mut);text-align:center;margin:-6px 0 10px}
 </style>
 </head>
@@ -106,8 +105,6 @@
 </header>
 
 <div class="wrap">
-  <div class="demo-banner" id="demoBanner">⚠️ Modo demonstração: os dados ficam só neste aparelho (backend ainda não configurado).</div>
-
   <div class="tabs">
     <button id="tabJogos" class="on" onclick="abrirTab('jogos')">🎯 Jogos</button>
     <button id="tabRanking" onclick="abrirTab('ranking')">🏆 Ranking</button>
@@ -144,8 +141,8 @@
   <div class="modal frm">
     <h2>🔐 Acesso do organizador</h2>
     <p>Área restrita para cadastrar times, jogos e lançar resultados.</p>
-    <label>E-mail</label>
-    <input type="email" id="admEmail" autocomplete="username">
+    <label>Login (o mesmo do placar da gincana)</label>
+    <input type="text" id="admEmail" autocomplete="username" placeholder="ex.: admin.sipatmin">
     <label>Senha</label>
     <input type="password" id="admSenha" autocomplete="current-password">
     <div style="margin-top:16px;display:flex;justify-content:space-between">
@@ -163,15 +160,13 @@
 </footer>
 
 <script>
-/* ================= CONFIG (Firebase — projeto próprio do bolão) =================
-   A apiKey do Firebase é um identificador público de projeto (não é segredo);
-   a proteção real são as Security Rules do Firestore (ver SETUP-APOSTAS.md). */
-const CFG = {
-  apiKey:    'COLE_AQUI',
-  projectId: 'COLE_AQUI'
+/* ================= CONFIG (Supabase — mesmo projeto do placar, tabelas ap_*) =================
+   A chave publishable é pública por design (igual nos outros apps do Relyson);
+   a proteção real são as policies de RLS (ver supabase-setup-bolao.sql). */
+const SB = {
+  url: 'https://feoxwjsziizfnswqqelt.supabase.co',
+  key: 'sb_publishable_-_jPrgTft2KHfuuAigX_Gw_3kxGR6C1'
 };
-const DEMO = CFG.projectId === 'COLE_AQUI';
-
 const EMPATE = 'Empate';
 const MODALIDADES = { 'Futebol':'⚽', 'Vôlei':'🏐', 'Beach':'⛱️' };
 const COL_TIMES = 'ap_times', COL_JOGOS = 'ap_jogos', COL_PALPITES = 'ap_palpites';
@@ -179,9 +174,11 @@ const POLL_MS = 30000;
 const PALETA = ['#3560B0','#12B76A','#FF6A00','#8B5CF6','#E5484D','#0EA5B7','#D4A017','#EC4899'];
 
 /* ================= estado ================= */
-let times = [];      // [{_id,nome,cor}]
-let jogos = [];      // [{_id,nome,timeA,timeB,dataHora,travado,permiteEmpate,vencedor,ordem}]
-let palpites = [];   // [{_id,jogoId,nome,palpite,atualizadoEm}]
+let times = [];        // [{_id,nome,cor}]
+let jogos = [];        // [{_id,nome,modalidade,timeA,timeB,dataHora,travado,permiteEmpate,vencedor,ordem}]
+let palpites = [];     // SÓ os palpites do usuário atual (economia de tráfego)
+let contagens = {};    // jogoId -> nº de palpites (view ap_contagens)
+let rankingRows = [];  // ranking agregado no servidor (view ap_ranking)
 let eu = null;       // {nome}
 let adm = null;      // {idToken,refreshToken,exp,email}
 let tabAtual = 'jogos';
@@ -205,105 +202,87 @@ function tempoRestante(j){
 }
 function timePorNome(nome){ return times.find(t=>t.nome===nome) || null; }
 function corDe(nome){ const t=timePorNome(nome); return t? t.cor : '#66708a'; }
-function siglaDe(nome){ const p=String(nome).trim().split(/\s+/); return (p.length>1? p[0][0]+p[1][0]+(p[2]?p[2][0]:'') : nome.slice(0,3)).toUpperCase(); }
+function siglaDe(nome){
+  const p = String(nome).replace(/[^\p{L}\p{N} ]/gu,' ').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '?';
+  return (p.length>1 ? p.slice(0,3).map(w=>w[0]).join('') : p[0].slice(0,3)).toUpperCase();
+}
 function corPessoa(nome){ let h=0; for(const c of nome) h=(h*31+c.charCodeAt(0))>>>0; return PALETA[h%PALETA.length]; }
 function fecharModal(id){ $(id).classList.remove('show'); }
 
-/* ================= Firestore via REST (sem SDK — só googleapis.com) ================= */
-const FS_BASE = `https://firestore.googleapis.com/v1/projects/${CFG.projectId}/databases/(default)/documents`;
-
-function fsVal(v){
-  if(v===null||v===undefined) return {nullValue:null};
-  if(typeof v==='boolean') return {booleanValue:v};
-  if(typeof v==='number') return Number.isInteger(v) ? {integerValue:String(v)} : {doubleValue:v};
-  if(v instanceof Date) return {timestampValue:v.toISOString()};
-  return {stringValue:String(v)};
+/* ================= Supabase via REST (sem SDK — única dependência externa: supabase.co) ================= */
+function decTime(r){ return {_id:r.id, nome:r.nome, cor:r.cor}; }
+function decJogo(r){ return {_id:r.id, nome:r.nome, modalidade:r.modalidade, timeA:r.time_a, timeB:r.time_b,
+  dataHora:r.data_hora, travado:!!r.travado, permiteEmpate:!!r.permite_empate, vencedor:r.vencedor, ordem:r.ordem||0}; }
+function decPalpite(r){ return {_id:r.id, jogoId:r.jogo_id, nome:r.nome, palpite:r.palpite, atualizadoEm:r.atualizado_em}; }
+function encRow(col, id, d){
+  if(col===COL_TIMES) return {id, nome:d.nome, cor:d.cor};
+  if(col===COL_JOGOS) return {id, nome:d.nome, modalidade:d.modalidade||'Futebol', time_a:d.timeA, time_b:d.timeB,
+    data_hora:new Date(d.dataHora).toISOString(), travado:!!d.travado, permite_empate:!!d.permiteEmpate,
+    vencedor:d.vencedor||null, ordem:d.ordem||0};
+  return {id, jogo_id:d.jogoId, nome:d.nome, palpite:d.palpite, atualizado_em:new Date().toISOString()};
 }
-function fsEnc(obj){ const f={}; for(const k in obj) f[k]=fsVal(obj[k]); return {fields:f}; }
-function fsDec(doc){
-  const o = {_id: doc.name.split('/').pop()}, f = doc.fields||{};
-  for(const k in f){ const v=f[k];
-    o[k] = 'stringValue'   in v ? v.stringValue
-         : 'integerValue'  in v ? Number(v.integerValue)
-         : 'doubleValue'   in v ? v.doubleValue
-         : 'booleanValue'  in v ? v.booleanValue
-         : 'timestampValue'in v ? v.timestampValue
-         : null;
-  }
-  return o;
-}
-async function fsFetch(url, opts={}, comAuth=false){
-  opts.headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+async function sbFetch(path, opts={}, comAuth=false){
+  opts.headers = Object.assign({'apikey':SB.key, 'Content-Type':'application/json'}, opts.headers||{});
+  let tk = SB.key;
   if(comAuth){
-    const tk = await tokenAdmin();
+    tk = await tokenAdmin();
     if(!tk) throw new Error('Sessão do organizador expirou — entre de novo.');
-    opts.headers['Authorization'] = 'Bearer '+tk;
   }
-  const r = await fetch(url, opts);
+  opts.headers['Authorization'] = 'Bearer '+tk;
+  const r = await fetch(SB.url+path, opts);
   if(!r.ok){
     let msg = 'HTTP '+r.status;
-    try{ const j = await r.json(); msg = (j.error && j.error.message) || msg; }catch(e){}
-    if(r.status===403) msg = comAuth? 'Permissão negada (sessão do organizador pode ter expirado)' : 'Palpite recusado — este jogo já fechou. 🔒';
+    try{ const j = await r.json(); msg = j.message || j.error_description || j.msg || msg; }catch(e){}
+    if(r.status===401 || r.status===403) msg = comAuth? 'Permissão negada — sessão do organizador expirou? Entre de novo.' : 'Palpite recusado — este jogo já fechou. 🔒';
+    if(r.status===404) msg = 'Servidor ainda não configurado (rodar supabase-setup-bolao.sql)';
     throw new Error(msg);
   }
-  return r.status===200 ? r.json() : null;
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
 }
-async function fsListar(col){
-  let docs = [], pageToken = '';
-  do{
-    const url = `${FS_BASE}/${col}?pageSize=300&key=${CFG.apiKey}` + (pageToken ? '&pageToken='+encodeURIComponent(pageToken) : '');
-    const j = await fsFetch(url);
-    docs = docs.concat((j.documents||[]).map(fsDec));
-    pageToken = j.nextPageToken || '';
-  }while(pageToken);
-  return docs;
-}
+async function sbGet(q){ return sbFetch('/rest/v1/'+q); }
 async function fsSalvar(col, id, data, comAuth){
-  const url = `${FS_BASE}/${col}/${encodeURIComponent(id)}?key=${CFG.apiKey}`;
-  return fsFetch(url, {method:'PATCH', body: JSON.stringify(fsEnc(data))}, comAuth);
+  return sbFetch('/rest/v1/'+col, {
+    method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify(encRow(col, id, data))
+  }, comAuth);
 }
 async function fsExcluir(col, id, comAuth){
-  const url = `${FS_BASE}/${col}/${encodeURIComponent(id)}?key=${CFG.apiKey}`;
-  return fsFetch(url, {method:'DELETE'}, comAuth);
+  return sbFetch('/rest/v1/'+col+'?id=eq.'+encodeURIComponent(id), {method:'DELETE', headers:{'Prefer':'return=minimal'}}, comAuth);
 }
 
-/* ---- auth do organizador (Firebase Auth REST) ---- */
+/* ---- auth do organizador (Supabase Auth — mesmo login do placar da gincana) ---- */
 async function tokenAdmin(){
   if(!adm) return null;
-  if(DEMO) return adm.idToken;
   if(Date.now() < adm.exp - 60000) return adm.idToken;
   try{
-    const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${CFG.apiKey}`, {
-      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(adm.refreshToken)
+    const r = await fetch(SB.url+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: adm.refreshToken})
     });
     if(!r.ok) throw 0;
     const j = await r.json();
-    adm.idToken = j.id_token; adm.refreshToken = j.refresh_token;
-    adm.exp = Date.now() + Number(j.expires_in)*1000;
+    adm.idToken = j.access_token; adm.refreshToken = j.refresh_token;
+    adm.exp = Date.now() + Number(j.expires_in||3600)*1000;
     sessionStorage.setItem('ap_adm', JSON.stringify(adm));
     return adm.idToken;
   }catch(e){ adm=null; sessionStorage.removeItem('ap_adm'); return null; }
 }
 async function loginAdmin(){
-  const email = $('admEmail').value.trim(), senha = $('admSenha').value;
-  if(!email || !senha){ toast('Preencha e-mail e senha'); return; }
+  const login = $('admEmail').value.trim(), senha = $('admSenha').value;
+  if(!login || !senha){ toast('Preencha login e senha'); return; }
+  const email = login.includes('@') ? login : login+'@sipatmin.aura';
   $('btnLogin').disabled = true;
   try{
-    if(DEMO){
-      adm = {idToken:'demo', refreshToken:'demo', exp: Date.now()+3600e3, email};
-    }else{
-      const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CFG.apiKey}`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password: senha, returnSecureToken:true})
-      });
-      const j = await r.json();
-      if(!r.ok){
-        const cod = (j.error && j.error.message) || '';
-        throw new Error(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(cod) ? 'E-mail ou senha incorretos' : 'Falha no login: '+(cod||r.status));
-      }
-      adm = {idToken:j.idToken, refreshToken:j.refreshToken, exp: Date.now()+Number(j.expiresIn)*1000, email};
-    }
+    const r = await fetch(SB.url+'/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
+      body: JSON.stringify({email, password: senha})
+    });
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.error_description || j.msg || 'Login ou senha incorretos');
+    adm = {idToken:j.access_token, refreshToken:j.refresh_token, exp: Date.now()+Number(j.expires_in||3600)*1000, email};
     sessionStorage.setItem('ap_adm', JSON.stringify(adm));
     $('admSenha').value='';
     fecharModal('modalAdm');
@@ -314,37 +293,26 @@ async function loginAdmin(){
 }
 function sairAdmin(){ adm=null; sessionStorage.removeItem('ap_adm'); toast('Sessão encerrada'); abrirTab('jogos'); }
 
-/* ================= modo demonstração (sem backend) ================= */
-function demoLer(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
-function demoGravar(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
-function demoSeed(){
-  if(localStorage.getItem('ap_demo_seed3')) return;
-  const base = Date.now();
-  demoGravar('ap_demo_times', [
-    {_id:'t1', nome:'Time Exemplo A', cor:'#3560B0'},
-    {_id:'t2', nome:'Time Exemplo B', cor:'#FF6A00'}
-  ]);
-  demoGravar('ap_demo_jogos', [
-    {_id:'demo1', nome:'Demonstração — Futebol', modalidade:'Futebol', timeA:'Time Exemplo A', timeB:'Time Exemplo B', dataHora:new Date(base+2*864e5).toISOString(), travado:false, permiteEmpate:true, vencedor:null, ordem:1},
-    {_id:'demo2', nome:'Demonstração — Vôlei', modalidade:'Vôlei', timeA:'Time Exemplo A', timeB:'Time Exemplo B', dataHora:new Date(base+3*864e5).toISOString(), travado:false, permiteEmpate:false, vencedor:null, ordem:2}
-  ]);
-  demoGravar('ap_demo_palpites', []);
-  localStorage.setItem('ap_demo_seed3','1');
-}
-
 /* ================= dados ================= */
 async function carregar(silencioso){
   try{
-    if(DEMO){
-      demoSeed();
-      times = demoLer('ap_demo_times'); jogos = demoLer('ap_demo_jogos'); palpites = demoLer('ap_demo_palpites');
-    }else{
-      const [t,j,p] = await Promise.all([fsListar(COL_TIMES), fsListar(COL_JOGOS), fsListar(COL_PALPITES)]);
-      times = t; jogos = j; palpites = p;
-    }
+    // leve por natureza: contagens e ranking já vêm agregados do servidor (views);
+    // dos palpites, cada aparelho baixa só os do próprio usuário
+    const [t,j,c,r,m] = await Promise.all([
+      sbGet(COL_TIMES+'?select=*'),
+      sbGet(COL_JOGOS+'?select=*'),
+      sbGet('ap_contagens?select=*'),
+      sbGet('ap_ranking?select=*'),
+      eu ? sbGet(COL_PALPITES+'?select=*&nome=eq.'+encodeURIComponent(eu.nome)) : Promise.resolve([])
+    ]);
+    times = t.map(decTime);
+    jogos = j.map(decJogo);
+    contagens = {}; c.forEach(x=>{ contagens[x.jogo_id] = x.n; });
+    rankingRows = r;
+    palpites = m.map(decPalpite);
     times.sort((a,b)=> a.nome.localeCompare(b.nome,'pt-BR'));
     jogos.sort((a,b)=> (a.dataHora||'').localeCompare(b.dataHora||'') || (a.ordem||0)-(b.ordem||0));
-    $('syncInfo').textContent = DEMO ? '' : '✔ atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    $('syncInfo').textContent = '✔ atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     render();
   }catch(e){
     if(!silencioso) toast('Erro ao carregar: '+e.message, 4000);
@@ -356,15 +324,9 @@ async function salvarPalpite(jogoId, escolha){
   const j = jogos.find(x=>x._id===jogoId);
   if(!j || jogoFechado(j)){ toast('⏱ Palpites deste jogo já fecharam!'); carregar(true); return; }
   const id = jogoId+'__'+slug(eu.nome);
-  const dado = { jogoId, nome:eu.nome, palpite:escolha, atualizadoEm:new Date() };
+  const dado = { jogoId, nome:eu.nome, palpite:escolha };
   try{
-    if(DEMO){
-      const lista = demoLer('ap_demo_palpites').filter(p=>p._id!==id);
-      lista.push(Object.assign({_id:id}, dado, {atualizadoEm:new Date().toISOString()}));
-      demoGravar('ap_demo_palpites', lista);
-    }else{
-      await fsSalvar(COL_PALPITES, id, dado, false);
-    }
+    await fsSalvar(COL_PALPITES, id, dado, false);
     toast(escolha===EMPATE ? '🤝 Palpite: empate!' : '⚽ Palpite salvo: '+escolha+'!');
     carregar(true);
   }catch(e){ toast('Não foi possível salvar: '+e.message, 4000); }
@@ -463,7 +425,7 @@ function renderJogos(){
       extra = sel ? `<div class="meu-palpite">Pode trocar o palpite até fechar 😉</div>`
                   : `<div class="meu-palpite">Toque num time${j.permiteEmpate!==false?' (ou no empate)':''} para palpitar</div>`;
     }
-    const nPalp = palpites.filter(p=>p.jogoId===j._id).length;
+    const nPalp = contagens[j._id] || 0;
     const empateBtn = j.permiteEmpate!==false
       ? `<button class="empate-btn ${sel===EMPATE?'sel':''}" ${fechado?'disabled':''} onclick="salvarPalpite('${esc(j._id)}','${EMPATE}')">🤝<br>EMPATE</button>`
       : `<div class="frm x">✕</div>`;
@@ -484,13 +446,12 @@ function renderRanking(){
   const consid = jogosFiltrados();
   const encerrados = consid.filter(j=>j.vencedor);
   const mapa = {};
-  palpites.forEach(p=>{
-    if(!consid.some(x=>x._id===p.jogoId)) return;
-    const k = slug(p.nome);
-    if(!mapa[k]) mapa[k] = {nome:p.nome, acertos:0, dados:0};
-    mapa[k].dados++;
-    const j = encerrados.find(x=>x._id===p.jogoId);
-    if(j && j.vencedor===p.palpite) mapa[k].acertos++;
+  rankingRows.forEach(r=>{
+    if(filtroMod!=='Todos' && r.modalidade!==filtroMod) return;
+    const k = slug(r.nome);
+    if(!mapa[k]) mapa[k] = {nome:r.nome, acertos:0, dados:0};
+    mapa[k].acertos += r.acertos;
+    mapa[k].dados += r.dados;
   });
   const lista = Object.values(mapa).sort((a,b)=> b.acertos-a.acertos || b.dados-a.dados || a.nome.localeCompare(b.nome,'pt-BR'));
   if(!lista.length){
@@ -569,7 +530,7 @@ function renderAdmin(){
       <button class="btn ghost small" onclick="baixarCSV()">⬇ Palpites (CSV)</button>
     </div>
     ${jogos.length? jogos.map(j=>{
-      const n = palpites.filter(p=>p.jogoId===j._id).length;
+      const n = contagens[j._id] || 0;
       const fechado = jogoFechado(j);
       const opcoes = [j.timeA, j.timeB].concat(j.permiteEmpate!==false?[EMPATE]:[]);
       return `<div class="adm-jogo">
@@ -603,11 +564,7 @@ async function salvarTime(){
   }
   const id = editandoTime ? editandoTime._id : 'time-'+slug(nome);
   try{
-    if(DEMO){
-      const lista = demoLer('ap_demo_times').filter(t=>t._id!==id);
-      lista.push({_id:id, nome, cor});
-      demoGravar('ap_demo_times', lista);
-    }else await fsSalvar(COL_TIMES, id, {nome, cor}, true);
+    await fsSalvar(COL_TIMES, id, {nome, cor}, true);
     editandoTime = null;
     toast('Time salvo ✔');
     await carregar(true);
@@ -619,8 +576,7 @@ async function excluirTime(id){
   if(timeUsado(t.nome)){ toast('Esse time está em jogos cadastrados — exclua os jogos dele primeiro.', 4000); return; }
   if(!confirm('Excluir o time "'+t.nome+'"?')) return;
   try{
-    if(DEMO) demoGravar('ap_demo_times', demoLer('ap_demo_times').filter(x=>x._id!==id));
-    else await fsExcluir(COL_TIMES, id, true);
+    await fsExcluir(COL_TIMES, id, true);
     toast('Time excluído');
     await carregar(true);
   }catch(e){ toast('Erro: '+e.message, 4000); }
@@ -638,11 +594,7 @@ async function salvarJogo(){
   const dado = { nome, modalidade, timeA, timeB, dataHora:new Date(dataStr), travado: editandoJogo? !!editandoJogo.travado : false,
                  permiteEmpate: $('jEmpate').checked, vencedor: editandoJogo? (editandoJogo.vencedor||null) : null, ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1 };
   try{
-    if(DEMO){
-      const lista = demoLer('ap_demo_jogos').filter(x=>x._id!==id);
-      lista.push(Object.assign({_id:id}, dado, {dataHora:dado.dataHora.toISOString()}));
-      demoGravar('ap_demo_jogos', lista);
-    }else await fsSalvar(COL_JOGOS, id, dado, true);
+    await fsSalvar(COL_JOGOS, id, dado, true);
     editandoJogo = null;
     toast('Jogo salvo ✔');
     await carregar(true);
@@ -667,17 +619,10 @@ async function limparResultado(id){
 }
 async function excluirJogo(id){
   const j = jogos.find(x=>x._id===id); if(!j) return;
-  const n = palpites.filter(p=>p.jogoId===id).length;
+  const n = contagens[id] || 0;
   if(!confirm('Excluir "'+(j.nome||'jogo')+'"'+(n? ' e os '+n+' palpites dele':'')+'? Não dá pra desfazer.')) return;
   try{
-    if(DEMO){
-      demoGravar('ap_demo_jogos', demoLer('ap_demo_jogos').filter(x=>x._id!==id));
-      demoGravar('ap_demo_palpites', demoLer('ap_demo_palpites').filter(p=>p.jogoId!==id));
-    }else{
-      await fsExcluir(COL_JOGOS, id, true);
-      const orfaos = palpites.filter(p=>p.jogoId===id);
-      for(const p of orfaos) await fsExcluir(COL_PALPITES, p._id, true);
-    }
+    await fsExcluir(COL_JOGOS, id, true); // palpites caem junto (on delete cascade)
     toast('Jogo excluído');
     await carregar(true);
   }catch(e){ toast('Erro: '+e.message, 4000); }
@@ -687,18 +632,17 @@ async function atualizarJogo(j, mudancas, msg){
                  permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0 };
   Object.assign(dado, mudancas);
   try{
-    if(DEMO){
-      const lista = demoLer('ap_demo_jogos').filter(x=>x._id!==j._id);
-      lista.push(Object.assign({_id:j._id}, dado, {dataHora:dado.dataHora.toISOString()}));
-      demoGravar('ap_demo_jogos', lista);
-    }else await fsSalvar(COL_JOGOS, j._id, dado, true);
+    await fsSalvar(COL_JOGOS, j._id, dado, true);
     toast(msg);
     await carregar(true);
   }catch(e){ toast('Erro: '+e.message, 4000); }
 }
-function baixarCSV(){
+async function baixarCSV(){
+  let todos = [];
+  try{ todos = (await sbGet(COL_PALPITES+'?select=*&order=jogo_id,nome')).map(decPalpite); }
+  catch(e){ toast('Erro ao buscar palpites: '+e.message, 4000); return; }
   const linhas = [['Modalidade','Jogo','Confronto','Data','Nome','Palpite','Resultado','Acertou','Atualizado em']];
-  palpites.forEach(p=>{
+  todos.forEach(p=>{
     const j = jogos.find(x=>x._id===p.jogoId) || {};
     linhas.push([j.nome? modDe(j):'', j.nome||p.jogoId, (j.timeA||'')+' x '+(j.timeB||''), j.dataHora? fmtData(j.dataHora):'', p.nome, p.palpite,
                  j.vencedor||'', j.vencedor? (j.vencedor===p.palpite?'SIM':'NÃO'):'', p.atualizadoEm? new Date(p.atualizadoEm).toLocaleString('pt-BR'):'']);
@@ -712,7 +656,6 @@ function baixarCSV(){
 
 /* ================= init ================= */
 (function(){
-  if(DEMO) $('demoBanner').style.display='block';
   try{ adm = JSON.parse(sessionStorage.getItem('ap_adm')); }catch(e){ adm=null; }
   carregarIdentidade();
   carregar();

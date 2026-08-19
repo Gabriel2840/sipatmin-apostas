@@ -1,101 +1,41 @@
-# Bolão SIPATMIN 2026 — Setup do backend (Firebase)
+# Bolão SIPATMIN 2026 — Setup (Supabase)
 
-O site é um HTML único hospedado no GitHub Pages. Os dados (times, jogos, palpites)
-ficam no **Firestore** de um projeto Firebase **próprio do bolão** — separado do
-Supabase do placar e de qualquer outro app. Enquanto o Firebase não for configurado,
-o site roda em **modo demonstração** (dados só no aparelho de quem abre).
+Site: HTML único no GitHub Pages (`https://gabriel2840.github.io/sipatmin-apostas/`).
+Dados: tabelas `ap_*` no **mesmo projeto Supabase do placar da gincana**
+(`feoxwjsziizfnswqqelt`) — sem conta nova, sem SDK (REST puro, funciona no Wi-Fi da Aura).
 
-> A `apiKey` do Firebase **não é segredo** — é um identificador público de projeto.
-> A segurança real vem das *Security Rules* abaixo. Nenhuma senha fica no código.
+> A chave *publishable* no código é pública por design (igual aos outros apps).
+> A segurança vem das policies de RLS do `supabase-setup-bolao.sql`.
 
-## Passo 1 — Criar o projeto (≈5 min, no seu login Google)
+## Passo único de configuração
 
-1. Acesse https://console.firebase.google.com e clique em **Adicionar projeto**.
-2. Nome: `bolao-sipatmin` (ou outro). **Desative** o Google Analytics (não precisa).
-3. Criado o projeto, no menu lateral: **Criação (Build) → Firestore Database → Criar banco de dados**.
-   - Local: `southamerica-east1` (São Paulo).
-   - Modo: pode escolher qualquer um — as regras do Passo 2 substituem.
+1. Painel do Supabase → **SQL Editor** → colar o conteúdo de `supabase-setup-bolao.sql` → **Run**.
+   - Cria `ap_times`, `ap_jogos`, `ap_palpites`, as views `ap_contagens`/`ap_ranking`,
+     as policies (com os GRANTs — sem eles dá "permission denied") e **já semeia
+     os 14 times + 7 jogos da 1ª fase do futebol (19/08/2026)**.
+   - Pode rodar mais de uma vez sem duplicar nada.
 
-## Passo 2 — Colar as Security Rules
+Não precisa criar usuário: o organizador entra com o **mesmo login do placar**
+(`admin.sipatmin` + a senha de sempre). Quem manda é a função `sg_is_admin()` —
+líderes comuns conseguem logar, mas o banco recusa qualquer escrita deles em times/jogos.
 
-Em **Firestore Database → Regras (Rules)**, apague tudo e cole:
+## Segurança dos palpites (server-side)
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // Times e jogos: todo mundo lê, só o organizador logado escreve
-    match /ap_times/{id} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    match /ap_jogos/{id} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Palpites: todo mundo lê; qualquer pessoa cria/atualiza o seu,
-    // mas SÓ enquanto o jogo está aberto (não travado, sem resultado,
-    // antes do horário) e com um palpite válido para aquele jogo.
-    match /ap_palpites/{id} {
-      allow read: if true;
-      allow write: if request.auth != null; // organizador pode corrigir/excluir
-      allow create, update: if
-        request.resource.data.keys().hasOnly(['jogoId','nome','palpite','atualizadoEm']) &&
-        request.resource.data.jogoId is string &&
-        request.resource.data.nome is string &&
-        request.resource.data.nome.size() >= 5 &&
-        request.resource.data.nome.size() <= 60 &&
-        request.resource.data.palpite is string &&
-        get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.travado == false &&
-        get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.vencedor == null &&
-        request.time < get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.dataHora &&
-        (
-          request.resource.data.palpite == get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.timeA ||
-          request.resource.data.palpite == get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.timeB ||
-          (
-            request.resource.data.palpite == 'Empate' &&
-            get(/databases/$(database)/documents/ap_jogos/$(request.resource.data.jogoId)).data.permiteEmpate == true
-          )
-        );
-    }
-  }
-}
-```
-
-Clique em **Publicar**.
-
-Com isso o servidor recusa palpite fora de hora mesmo que alguém tente burlar o site
-(a trava não é só visual).
-
-## Passo 3 — Criar a conta do organizador
-
-1. Menu lateral: **Criação (Build) → Authentication → Vamos começar**.
-2. Aba **Sign-in method**: ative **E-mail/senha** (só a primeira chave; deixe "link por e-mail" desligado).
-3. Aba **Users → Adicionar usuário**: crie o organizador, por exemplo
-   `admin@bolao.sipatmin` + uma senha forte que só você saiba.
-   (O e-mail não precisa existir de verdade — é só o login.)
-
-## Passo 4 — Pegar a configuração e me mandar
-
-1. Engrenagem ⚙ (canto superior esquerdo) → **Configurações do projeto**.
-2. Seção **Seus aplicativos** → ícone **`</>` (Web)** → registre um app (nome livre, sem Hosting).
-3. Vai aparecer um bloco `firebaseConfig`. Só preciso de **2 valores**:
-   - `apiKey`
-   - `projectId`
-4. Me mande os dois no chat que eu coloco no site e publico a versão final.
+- Qualquer pessoa grava/edita palpite **só enquanto o jogo está aberto**:
+  não travado, sem resultado e antes de `data_hora` — verificado pelo banco, não pela tela.
+- O palpite precisa ser um dos dois times do jogo (ou "Empate", se o jogo permitir).
+- Excluir um jogo apaga os palpites dele junto (`on delete cascade`).
 
 ## Operação no dia a dia
 
-- **Área do organizador**: link "área do organizador" no rodapé do site → login do Passo 3.
-- Cadastre os **times** (nome + cor), depois os **jogos** (modalidade ⚽/🏐/⛱️, confronto, data/hora).
-- Palpites **travam sozinhos** no horário do jogo; o botão "🔒 Travar agora" antecipa.
-- Terminou o jogo: escolha o resultado no seletor e clique **🏁 Lançar** — o ranking atualiza para todo mundo.
+- **Área do organizador**: link no rodapé → login `admin.sipatmin`.
+- Cadastrar **times** (nome + cor) e **jogos** (modalidade ⚽/🏐/⛱️, confronto, data/hora).
+- Palpites travam sozinhos no horário; "🔒 Travar agora" antecipa.
+- Fim de jogo: selecionar resultado → **🏁 Lançar** (o ranking atualiza p/ todo mundo).
 - **⬇ Palpites (CSV)** exporta tudo em formato Excel-BR.
 
-## Limites do plano gratuito (Spark) — folga enorme
+## Consumo no plano free (compartilhado com os outros apps)
 
-- 50.000 leituras/dia · 20.000 gravações/dia · 1 GB de armazenamento.
-- Cenário de pico (500 pessoas × 4 acessos/dia): ~20 mil leituras/dia → menos da metade do limite.
-- Palpites são texto puro: o evento inteiro ocupa < 1 MB.
+- O app **não baixa todos os palpites**: ranking e contagens vêm agregados por views;
+  cada aparelho só baixa os próprios palpites. Cada atualização = poucos KB.
+- Dados do evento inteiro: < 1 MB de banco. Zero storage (não há fotos).
