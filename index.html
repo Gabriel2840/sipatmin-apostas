@@ -396,6 +396,9 @@ async function autenticar(criar){
   if(!/^[a-z0-9]+(\.[a-z0-9]+)+$/.test(login) || login.length < 5 || login.length > 40){
     toast('Login no formato nome.setor (só letras e ponto) 🙂'); return;
   }
+  if(criar && /^(admin|adm|presidente|organizador|sipatmin|aura|oficial)\b/.test(login.split('.')[0])){
+    toast('Esse nome é reservado da organização — use seu próprio nome 🙂', 4000); return;
+  }
   if(senha.length < 6){ toast('A senha precisa de pelo menos 6 caracteres'); return; }
   const email = login + DOM_PALP;
   $('btnEntrar').disabled = $('btnCriar').disabled = true;
