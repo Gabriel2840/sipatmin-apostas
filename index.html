@@ -82,6 +82,7 @@
   .adm-jogo .info{font-size:.72rem;color:var(--mut);margin-bottom:8px}
   .adm-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   .adm-acts select{padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:.72rem;font-family:inherit}
+  .adm-acts input[type=number]{width:52px;padding:7px 6px;border:1.5px solid var(--line);border-radius:8px;font-size:.72rem;font-family:inherit}
   .empty{text-align:center;color:var(--mut);font-size:.85rem;padding:30px 10px}
   .empty .big{font-size:2.2rem;display:block;margin-bottom:8px}
   .modal-bg{position:fixed;inset:0;background:rgba(13,33,73,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
@@ -142,10 +143,10 @@
 <!-- modal login admin -->
 <div class="modal-bg" id="modalAdm">
   <div class="modal frm">
-    <h2>🔐 Acesso do organizador</h2>
-    <p>Área restrita para cadastrar times, jogos e lançar resultados.</p>
-    <label>Login (o mesmo do placar da gincana)</label>
-    <input type="text" id="admEmail" autocomplete="username" placeholder="ex.: admin.sipatmin">
+    <h2>🔐 Acesso restrito</h2>
+    <p>Organizador (times e jogos) ou lançador de resultados.</p>
+    <label>Login</label>
+    <input type="text" id="admEmail" autocomplete="username" placeholder="ex.: admin.sipatmin ou presidente.resultados">
     <label>Senha</label>
     <input type="password" id="admSenha" autocomplete="current-password">
     <div style="margin-top:16px;display:flex;justify-content:space-between">
@@ -216,13 +217,15 @@ function fecharModal(id){ $(id).classList.remove('show'); }
 /* ================= Supabase via REST (sem SDK — única dependência externa: supabase.co) ================= */
 function decTime(r){ return {_id:r.id, nome:r.nome, cor:r.cor}; }
 function decJogo(r){ return {_id:r.id, nome:r.nome, modalidade:r.modalidade, timeA:r.time_a, timeB:r.time_b,
-  dataHora:r.data_hora, travado:!!r.travado, permiteEmpate:!!r.permite_empate, vencedor:r.vencedor, ordem:r.ordem||0, pontos:r.pontos||10}; }
+  dataHora:r.data_hora, travado:!!r.travado, permiteEmpate:!!r.permite_empate, vencedor:r.vencedor, ordem:r.ordem||0,
+  pontos:r.pontos||10, placarA:r.placar_a, placarB:r.placar_b}; }
 function decPalpite(r){ return {_id:r.id, jogoId:r.jogo_id, nome:r.nome, palpite:r.palpite, atualizadoEm:r.atualizado_em}; }
 function encRow(col, id, d){
   if(col===COL_TIMES) return {id, nome:d.nome, cor:d.cor};
   if(col===COL_JOGOS) return {id, nome:d.nome, modalidade:d.modalidade||'Futebol', time_a:d.timeA, time_b:d.timeB,
     data_hora:new Date(d.dataHora).toISOString(), travado:!!d.travado, permite_empate:!!d.permiteEmpate,
-    vencedor:d.vencedor||null, ordem:d.ordem||0, pontos:d.pontos||10};
+    vencedor:d.vencedor||null, ordem:d.ordem||0, pontos:d.pontos||10,
+    placar_a: d.placarA==null? null : d.placarA, placar_b: d.placarB==null? null : d.placarB};
   return {id, jogo_id:d.jogoId, nome:d.nome, palpite:d.palpite, atualizado_em:new Date().toISOString()};
 }
 async function sbFetch(path, opts={}, comAuth=false){
@@ -276,20 +279,31 @@ async function tokenAdmin(){
 async function loginAdmin(){
   const login = $('admEmail').value.trim(), senha = $('admSenha').value;
   if(!login || !senha){ toast('Preencha login e senha'); return; }
-  const email = login.includes('@') ? login : login+'@sipatmin.aura';
   $('btnLogin').disabled = true;
   try{
-    const r = await fetch(SB.url+'/auth/v1/token?grant_type=password', {
-      method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
-      body: JSON.stringify({email, password: senha})
-    });
-    const j = await r.json();
-    if(!r.ok) throw new Error(j.error_description || j.msg || 'Login ou senha incorretos');
-    adm = {idToken:j.access_token, refreshToken:j.refresh_token, exp: Date.now()+Number(j.expires_in||3600)*1000, email};
+    // tenta como admin do placar (@sipatmin.aura) e depois como conta do bolão (@bolao.sipatmin)
+    const emails = login.includes('@') ? [login] : [login+'@sipatmin.aura', login+'@bolao.sipatmin'];
+    let j = null;
+    for(const email of emails){
+      const r = await fetch(SB.url+'/auth/v1/token?grant_type=password', {
+        method:'POST', headers:{'apikey':SB.key, 'Content-Type':'application/json'},
+        body: JSON.stringify({email, password: senha})
+      });
+      const body = await r.json();
+      if(r.ok){ j = body; break; }
+    }
+    if(!j) throw new Error('Login ou senha incorretos');
+    adm = {idToken:j.access_token, refreshToken:j.refresh_token, exp: Date.now()+Number(j.expires_in||3600)*1000};
+    // é operador de resultados (e não admin pleno)?
+    try{
+      const uid = JSON.parse(atob(j.access_token.split('.')[1])).sub;
+      const op = await sbFetch('/rest/v1/ap_operadores?select=user_id&user_id=eq.'+uid, {}, 'admin');
+      adm.operador = Array.isArray(op) && op.length > 0;
+    }catch(e){ adm.operador = false; }
     sessionStorage.setItem('ap_adm', JSON.stringify(adm));
     $('admSenha').value='';
     fecharModal('modalAdm');
-    toast('Bem-vindo, organizador! 🔓');
+    toast(adm.operador ? 'Bem-vindo! Modo lançamento de resultados 🏁' : 'Bem-vindo, organizador! 🔓');
     abrirTab('admin');
   }catch(e){ toast(e.message, 4000); }
   finally{ $('btnLogin').disabled = false; }
@@ -462,7 +476,8 @@ function renderJogos(){
     let badge, extra='';
     if(j.vencedor){
       badge = `<span class="badge fim">🏁 Encerrado</span>`;
-      const txtV = j.vencedor===EMPATE ? '🤝 Deu empate!' : '🏆 Venceu: <b>'+esc(j.vencedor)+'</b>';
+      const pl = (j.placarA!=null && j.placarB!=null) ? ' · '+j.placarA+' × '+j.placarB : '';
+      const txtV = (j.vencedor===EMPATE ? '🤝 Deu empate!' : '🏆 Venceu: <b>'+esc(j.vencedor)+'</b>')+pl;
       extra = `<div class="resultado" style="color:${j.vencedor===EMPATE?'var(--mut)':corDe(j.vencedor)}">${txtV}</div>`;
       if(sel) extra += `<div class="resultado ${sel===j.vencedor?'acertou':'errou'}">${sel===j.vencedor?'✅ Você acertou! +'+(j.pontos||10)+' pts':'❌ Você palpitou '+(sel===EMPATE?'empate':esc(sel))}</div>`;
     }else if(fechado){
@@ -529,6 +544,17 @@ function abrirAdmin(){
 function renderAdmin(){
   const v = $('viewAdmin');
   if(!adm){ v.innerHTML=''; abrirTab('jogos'); return; }
+  if(adm.operador){
+    v.innerHTML = `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b>🏁 Lançar resultados</b>
+        <button class="btn ghost small" onclick="sairAdmin()">Sair 🔒</button>
+      </div>
+      <p style="font-size:.74rem;color:var(--mut);margin-bottom:10px">Terminou a partida? Escolha quem venceu, informe o placar se quiser (opcional) e toque em <b>🏁 Lançar</b> — o ranking atualiza sozinho. A trava de palpites continua automática no horário de cada jogo.</p>
+      ${adminListaJogos(false)}
+    </div>`;
+    return;
+  }
   const ft = editandoTime || {};
   const fj = editandoJogo || {};
   const opTimes = sel => times.map(t=>`<option ${sel===t.nome?'selected':''}>${esc(t.nome)}</option>`).join('');
@@ -581,27 +607,36 @@ function renderAdmin(){
       <b>📋 Jogos cadastrados (${jogos.length})</b>
       <button class="btn ghost small" onclick="baixarCSV()">⬇ Palpites (CSV)</button>
     </div>
-    ${jogos.length? jogos.map(j=>{
-      const n = contagens[j._id] || 0;
-      const fechado = jogoFechado(j);
-      const opcoes = [j.timeA, j.timeB].concat(j.permiteEmpate!==false?[EMPATE]:[]);
-      return `<div class="adm-jogo">
-        <div class="top"><b>${MODALIDADES[modDe(j)]} ${esc(j.nome||'Jogo')}</b>
-          ${j.vencedor? `<span class="badge fim">🏁 ${j.vencedor===EMPATE?'Empate':esc(j.vencedor)}</span>`
-            : fechado? '<span class="badge travado">🔒 travado</span>' : '<span class="badge aberto">🟢 aberto</span>'}
-        </div>
-        <div class="info">${esc(j.timeA)} × ${esc(j.timeB)} · 📅 ${fmtData(j.dataHora)} · 🎯 ${j.pontos||10} pts · ${n} palpite${n===1?'':'s'}${j.permiteEmpate===false?' · sem empate':''}</div>
-        <div class="adm-acts">
-          ${!j.vencedor? `<button class="btn ${j.travado?'ghost':'danger'} small" onclick="alternarTrava('${esc(j._id)}')">${j.travado?'🔓 Reabrir':'🔒 Travar agora'}</button>`:''}
-          ${!j.vencedor? `<select id="venc_${esc(j._id)}"><option value="">— resultado —</option>${opcoes.map(o=>`<option>${esc(o)}</option>`).join('')}</select>
-            <button class="btn primary small" onclick="definirVencedor('${esc(j._id)}')">🏁 Lançar</button>`
-            : `<button class="btn ghost small" onclick="limparResultado('${esc(j._id)}')">↩ Limpar resultado</button>`}
-          <button class="btn ghost small" onclick="editarJogo('${esc(j._id)}')">✏️</button>
-          <button class="btn danger small" onclick="excluirJogo('${esc(j._id)}')">🗑</button>
-        </div>
-      </div>`;
-    }).join('') : '<div class="empty">Nenhum jogo ainda — cadastre o primeiro acima. ⚽</div>'}
+    ${adminListaJogos(true)}
   </div>`;
+}
+function adminListaJogos(completo){
+  if(!jogos.length) return '<div class="empty">Nenhum jogo cadastrado ainda. ⚽</div>';
+  return jogos.map(j=>{
+    const id = esc(j._id);
+    const n = contagens[j._id] || 0;
+    const fechado = jogoFechado(j);
+    const opcoes = [j.timeA, j.timeB].concat(j.permiteEmpate!==false?[EMPATE]:[]);
+    const temPlacar = j.placarA!=null && j.placarB!=null;
+    return `<div class="adm-jogo">
+      <div class="top"><b>${MODALIDADES[modDe(j)]} ${esc(j.nome||'Jogo')}</b>
+        ${j.vencedor? `<span class="badge fim">🏁 ${j.vencedor===EMPATE?'Empate':esc(j.vencedor)}${temPlacar? ' · '+j.placarA+'×'+j.placarB:''}</span>`
+          : fechado? '<span class="badge travado">🔒 travado</span>' : '<span class="badge aberto">🟢 aberto</span>'}
+      </div>
+      <div class="info">${esc(j.timeA)} × ${esc(j.timeB)} · 📅 ${fmtData(j.dataHora)} · 🎯 ${j.pontos||10} pts · ${n} palpite${n===1?'':'s'}${j.permiteEmpate===false?' · sem empate':''}</div>
+      <div class="adm-acts">
+        ${!j.vencedor? `<button class="btn ${j.travado?'ghost':'danger'} small" onclick="alternarTrava('${id}')">${j.travado?'🔓 Reabrir':'🔒 Travar agora'}</button>`:''}
+        ${!j.vencedor? `<select id="venc_${id}"><option value="">— quem venceu? —</option>${opcoes.map(o=>`<option>${esc(o)}</option>`).join('')}</select>
+          <input type="number" id="pa_${id}" min="0" placeholder="${esc(siglaDe(j.timeA))}" title="placar de ${esc(j.timeA)} (opcional)">
+          ×
+          <input type="number" id="pb_${id}" min="0" placeholder="${esc(siglaDe(j.timeB))}" title="placar de ${esc(j.timeB)} (opcional)">
+          <button class="btn primary small" onclick="definirVencedor('${id}')">🏁 Lançar</button>`
+          : `<button class="btn ghost small" onclick="limparResultado('${id}')">↩ Limpar resultado</button>`}
+        ${completo? `<button class="btn ghost small" onclick="editarJogo('${id}')">✏️</button>
+        <button class="btn danger small" onclick="excluirJogo('${id}')">🗑</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
 }
 /* ---- times ---- */
 function timeUsado(nome){ return jogos.some(j=>j.timeA===nome || j.timeB===nome); }
@@ -646,7 +681,9 @@ async function salvarJogo(){
   const id = editandoJogo ? editandoJogo._id : 'jogo-'+slug(nome)+'-'+Date.now().toString(36);
   const dado = { nome, modalidade, timeA, timeB, dataHora:new Date(dataStr), travado: editandoJogo? !!editandoJogo.travado : false,
                  permiteEmpate: $('jEmpate').checked, vencedor: editandoJogo? (editandoJogo.vencedor||null) : null,
-                 ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1, pontos };
+                 ordem: editandoJogo? (editandoJogo.ordem||0) : jogos.length+1, pontos,
+                 placarA: editandoJogo && editandoJogo.placarA!=null? editandoJogo.placarA : null,
+                 placarB: editandoJogo && editandoJogo.placarB!=null? editandoJogo.placarB : null };
   try{
     await fsSalvar(COL_JOGOS, id, dado, true);
     editandoJogo = null;
@@ -661,15 +698,20 @@ async function alternarTrava(id){
 }
 async function definirVencedor(id){
   const sel = $('venc_'+id); const v = sel && sel.value;
-  if(!v){ toast('Escolha o resultado no seletor'); return; }
-  if(!confirm('Confirmar resultado: '+v+'? Isso fecha o jogo e pontua o ranking.')) return;
+  if(!v){ toast('Escolha quem venceu no seletor'); return; }
+  const paEl = $('pa_'+id), pbEl = $('pb_'+id);
+  const pa = paEl && paEl.value !== '' ? parseInt(paEl.value, 10) : null;
+  const pb = pbEl && pbEl.value !== '' ? parseInt(pbEl.value, 10) : null;
+  if((pa==null) !== (pb==null)){ toast('Placar: preencha os dois lados (ou deixe os dois vazios)'); return; }
+  if(pa!=null && (isNaN(pa) || isNaN(pb) || pa<0 || pb<0)){ toast('Placar inválido'); return; }
+  if(!confirm('Confirmar resultado: '+v+(pa!=null? ' ('+pa+' × '+pb+')':'')+'? Isso fecha o jogo e pontua o ranking.')) return;
   const j = jogos.find(x=>x._id===id); if(!j) return;
-  await atualizarJogo(j, {vencedor:v, travado:true}, '🏁 Resultado lançado!');
+  await atualizarJogo(j, {vencedor:v, travado:true, placarA:pa, placarB:pb}, '🏁 Resultado lançado!');
 }
 async function limparResultado(id){
   if(!confirm('Limpar o resultado deste jogo? Os pontos dele saem do ranking.')) return;
   const j = jogos.find(x=>x._id===id); if(!j) return;
-  await atualizarJogo(j, {vencedor:null}, 'Resultado removido');
+  await atualizarJogo(j, {vencedor:null, placarA:null, placarB:null}, 'Resultado removido');
 }
 async function excluirJogo(id){
   const j = jogos.find(x=>x._id===id); if(!j) return;
@@ -683,7 +725,8 @@ async function excluirJogo(id){
 }
 async function atualizarJogo(j, mudancas, msg){
   const dado = { nome:j.nome, modalidade:modDe(j), timeA:j.timeA, timeB:j.timeB, dataHora:new Date(j.dataHora), travado:!!j.travado,
-                 permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0, pontos:j.pontos||10 };
+                 permiteEmpate: j.permiteEmpate!==false, vencedor:j.vencedor||null, ordem:j.ordem||0, pontos:j.pontos||10,
+                 placarA: j.placarA!=null? j.placarA : null, placarB: j.placarB!=null? j.placarB : null };
   Object.assign(dado, mudancas);
   try{
     await fsSalvar(COL_JOGOS, j._id, dado, true);
