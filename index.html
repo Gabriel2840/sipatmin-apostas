@@ -114,8 +114,8 @@
 
   <div class="idbar" id="idbar" style="display:none">
     <div class="avatar" id="idAvatar">?</div>
-    <div class="who"><b id="idNome"></b><small>palpiteiro(a) oficial 🍀</small></div>
-    <a onclick="sairUser()">sair</a>
+    <div class="who"><b id="idNome"></b><small id="idSub"></small></div>
+    <a id="idAcao"></a>
   </div>
 
   <div class="sync" id="syncInfo"></div>
@@ -126,7 +126,7 @@
 </div>
 
 <!-- modal identidade (login/cadastro do palpiteiro) -->
-<div class="modal-bg" id="modalId">
+<div class="modal-bg" id="modalId" onclick="if(event.target===this) fecharModal('modalId')">
   <div class="modal frm">
     <h2>Entre para palpitar 👋</h2>
     <p>Login no formato <b>nome.setor</b> (ex.: <i>maria.mina</i>) + uma senha sua. Primeira vez? Toque em <b>Criar conta</b>. Seu login aparece no ranking.</p>
@@ -134,9 +134,12 @@
     <input type="text" id="inLogin" maxlength="40" autocomplete="username" placeholder="ex.: maria.beneficiamento" style="text-transform:lowercase">
     <label>Senha (mínimo 6 caracteres)</label>
     <input type="password" id="inSenha" autocomplete="current-password">
-    <div style="margin-top:16px;display:flex;gap:8px;justify-content:space-between">
-      <button class="btn ghost" id="btnCriar" onclick="autenticar(true)">Criar conta</button>
-      <button class="btn primary" id="btnEntrar" onclick="autenticar(false)">Entrar ✔</button>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">
+      <button class="btn ghost" onclick="fecharModal('modalId')">Agora não</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" id="btnCriar" onclick="autenticar(true)">Criar conta</button>
+        <button class="btn primary" id="btnEntrar" onclick="autenticar(false)">Entrar ✔</button>
+      </div>
     </div>
   </div>
 </div>
@@ -361,11 +364,23 @@ function carregarIdentidade(){
   renderIdBar();
 }
 function renderIdBar(){
-  if(!eu){ $('idbar').style.display='none'; return; }
-  $('idbar').style.display='flex';
+  const acao = $('idAcao');
+  $('idbar').style.display = 'flex';
+  if(!eu){
+    $('idAvatar').textContent = '👤';
+    $('idAvatar').style.background = '#66708a';
+    $('idNome').textContent = 'Você ainda não entrou';
+    $('idSub').textContent = 'entre ou crie sua conta para palpitar';
+    acao.textContent = 'entrar / criar conta';
+    acao.onclick = abrirIdentidade;
+    return;
+  }
   $('idAvatar').textContent = eu.login[0].toUpperCase();
   $('idAvatar').style.background = corPessoa(eu.login);
   $('idNome').textContent = eu.login;
+  $('idSub').textContent = 'palpiteiro(a) oficial 🍀';
+  acao.textContent = 'sair';
+  acao.onclick = sairUser;
 }
 function abrirIdentidade(){
   $('inLogin').value = eu ? eu.login : '';
@@ -878,7 +893,6 @@ async function baixarCSV(){
   mostrarTabAdmin();
   carregarIdentidade();
   carregar();
-  if(!eu) setTimeout(abrirIdentidade, 600);
   setInterval(()=>{ if(document.visibilityState==='visible') carregar(true); }, POLL_MS);
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') carregar(true); });
 })();
