@@ -542,6 +542,119 @@ function renderRanking(){
   </div>`;
 }
 
+/* ================= chaveamento (fases finais identificadas pelos resultados) ================= */
+const GRUPOS_CHAVE = {
+  VG1: ['Jovens PH','Águias do Sertão','Bola na Rede','Gold Rush'],
+  VG2: ['AGS Vôlei','ADM','SEPAT','Manutenção'],
+  BGA: ['Geórgia Luyse & Alexandre Otávio','Ícaro Noberto & Palloma Abdias','Meirilaine Silveira & Bernard Frankó','Maryanne Costa & Rodrigo Galdino'],
+  BGB: ['Hellany Cybelle & Emanuel Carlos Araújo','Sirleya & Irineu Alex','Mirtes Gurge & Renan Rodrigues da Silva','Igor Gomes & Karoline Ribas']
+};
+const CHAVES = [
+  // Futebol: quartas (26/08), semis e final (02/09)
+  {id:'jogo-f2-8',  mod:'Futebol', nome:'Jogo 8 — Quartas',  data:'2026-08-26T19:30:00-03:00', pontos:10, a:{v:'jogo-f1-1'}, b:{manual:'Melhor rendimento entre os desclassificados', cand:'perdedoresF1'}},
+  {id:'jogo-f2-9',  mod:'Futebol', nome:'Jogo 9 — Quartas',  data:'2026-08-26T20:00:00-03:00', pontos:10, a:{v:'jogo-f1-2'}, b:{v:'jogo-f1-7'}},
+  {id:'jogo-f2-10', mod:'Futebol', nome:'Jogo 10 — Quartas', data:'2026-08-26T20:30:00-03:00', pontos:10, a:{v:'jogo-f1-3'}, b:{v:'jogo-f1-6'}},
+  {id:'jogo-f2-11', mod:'Futebol', nome:'Jogo 11 — Quartas', data:'2026-08-26T21:00:00-03:00', pontos:10, a:{v:'jogo-f1-4'}, b:{v:'jogo-f1-5'}},
+  {id:'jogo-f-sf1', mod:'Futebol', nome:'Semifinal 1', data:'2026-09-02T19:30:00-03:00', pontos:30, a:{v:'jogo-f2-8'}, b:{v:'jogo-f2-10'}},
+  {id:'jogo-f-sf2', mod:'Futebol', nome:'Semifinal 2', data:'2026-09-02T20:00:00-03:00', pontos:30, a:{v:'jogo-f2-9'}, b:{v:'jogo-f2-11'}},
+  {id:'jogo-f-final', mod:'Futebol', nome:'Final', data:'2026-09-02T20:30:00-03:00', pontos:30, a:{v:'jogo-f-sf1'}, b:{v:'jogo-f-sf2'}},
+  // Vôlei: semis cruzadas e final (02/09)
+  {id:'jogo-v-sf1', mod:'Vôlei', nome:'Semifinal 1', data:'2026-09-02T19:00:00-03:00', pontos:30, a:{g:'VG1',pos:1}, b:{g:'VG2',pos:2}},
+  {id:'jogo-v-sf2', mod:'Vôlei', nome:'Semifinal 2', data:'2026-09-02T19:40:00-03:00', pontos:30, a:{g:'VG2',pos:1}, b:{g:'VG1',pos:2}},
+  {id:'jogo-v-final', mod:'Vôlei', nome:'Final', data:'2026-09-02T20:20:00-03:00', pontos:30, a:{v:'jogo-v-sf1'}, b:{v:'jogo-v-sf2'}},
+  // Beach Tennis: semis cruzadas 21h e final 21h20 (02/09)
+  {id:'jogo-bt-sf1', mod:'Beach Tennis', nome:'Semifinal 1 · Quadra 1', data:'2026-09-02T21:00:00-03:00', pontos:30, a:{g:'BGA',pos:1}, b:{g:'BGB',pos:2}},
+  {id:'jogo-bt-sf2', mod:'Beach Tennis', nome:'Semifinal 2 · Quadra 2', data:'2026-09-02T21:00:00-03:00', pontos:30, a:{g:'BGB',pos:1}, b:{g:'BGA',pos:2}},
+  {id:'jogo-bt-final', mod:'Beach Tennis', nome:'Grande Final', data:'2026-09-02T21:20:00-03:00', pontos:30, a:{v:'jogo-bt-sf1'}, b:{v:'jogo-bt-sf2'}}
+];
+function classifGrupo(nomes, mod){
+  const rows = nomes.map(n=>({nome:n, v:0, saldo:0}));
+  const jg = jogos.filter(j=>modDe(j)===mod && nomes.includes(j.timeA) && nomes.includes(j.timeB));
+  const total = nomes.length*(nomes.length-1)/2;
+  let fechados = 0;
+  jg.forEach(j=>{
+    if(!j.vencedor || j.vencedor===EMPATE) return;
+    fechados++;
+    const w = rows.find(r=>r.nome===j.vencedor); if(w) w.v++;
+    if(j.placarA!=null && j.placarB!=null){
+      const ra = rows.find(r=>r.nome===j.timeA), rb = rows.find(r=>r.nome===j.timeB);
+      if(ra) ra.saldo += j.placarA - j.placarB;
+      if(rb) rb.saldo += j.placarB - j.placarA;
+    }
+  });
+  rows.sort((a,b)=> b.v-a.v || b.saldo-a.saldo || a.nome.localeCompare(b.nome,'pt-BR'));
+  return {rows, completo: fechados >= total};
+}
+function perdedoresF1(){
+  return jogos.filter(j=>/^jogo-f1-/.test(j._id) && j.vencedor && j.vencedor!==EMPATE)
+              .map(j=> j.vencedor===j.timeA ? j.timeB : j.timeA);
+}
+function resolverSlot(s, mod){
+  if(s.v){
+    const j = jogos.find(x=>x._id===s.v);
+    if(!j) return {ok:false, motivo:'aguardando jogo anterior'};
+    if(j.vencedor && j.vencedor!==EMPATE) return {ok:true, time:j.vencedor};
+    return {ok:false, motivo:'aguarda: '+(j.nome||s.v)};
+  }
+  if(s.g){
+    const nomes = GRUPOS_CHAVE[s.g];
+    const c = classifGrupo(nomes, mod);
+    if(!c.completo) return {ok:false, motivo:'grupo em andamento ('+(s.pos===1?'1º':'2º')+' lugar)'};
+    const i = s.pos-1;
+    const empatado = (c.rows[i+1] && c.rows[i].v===c.rows[i+1].v && c.rows[i].saldo===c.rows[i+1].saldo)
+                  || (i>0 && c.rows[i-1].v===c.rows[i].v && c.rows[i-1].saldo===c.rows[i].saldo);
+    if(empatado) return {ok:false, escolher:nomes, motivo:'empate na classificação — escolha (dica: use o placar como critério)'};
+    return {ok:true, time:c.rows[i].nome};
+  }
+  if(s.manual){
+    const cand = s.cand==='perdedoresF1' ? perdedoresF1() : [];
+    if(!cand.length) return {ok:false, motivo:s.manual+' (aguarda a fase anterior)'};
+    return {ok:false, escolher:cand, motivo:s.manual};
+  }
+  return {ok:false, motivo:'?'};
+}
+function slotHtml(r, lado, chaveId){
+  if(r.ok) return '<b>'+esc(r.time)+'</b>';
+  if(r.escolher) return `<select id="ch${lado}_${chaveId}"><option value="">— escolher —</option>${r.escolher.map(t=>`<option>${esc(t)}</option>`).join('')}</select><small style="color:var(--warn)">${esc(r.motivo)}</small>`;
+  return '<i style="color:var(--mut);font-size:.74rem">⏳ '+esc(r.motivo)+'</i>';
+}
+function cardChaveamento(){
+  const pend = CHAVES.filter(c=>!jogos.some(j=>j._id===c.id));
+  if(!pend.length) return '';
+  return `<div class="card">
+    <b>🗺 Chaveamento — próximos jogos</b>
+    <p style="font-size:.74rem;color:var(--mut);margin:6px 0 10px">O site identifica os classificados conforme os resultados são lançados. Quando os dois lados estiverem definidos, toque em ➕ Criar — o jogo abre para palpites na hora. Data/hora e pontos podem ser ajustados depois pelo ✏️.</p>
+    ${pend.map(c=>{
+      const A = resolverSlot(c.a, c.mod), B = resolverSlot(c.b, c.mod);
+      const pronto = (A.ok||A.escolher) && (B.ok||B.escolher);
+      return `<div class="adm-jogo">
+        <div class="top"><b>${MODALIDADES[c.mod]} ${esc(c.nome)}</b><span class="badge ${pronto?'aberto':'fim'}">${pronto?'✅ pronto p/ criar':'⏳ aguardando'}</span></div>
+        <div class="info">📅 ${fmtData(c.data)} · 🎯 vale ${c.pontos} pts</div>
+        <div class="adm-acts">
+          ${slotHtml(A,'a',c.id)} <span class="frm x">×</span> ${slotHtml(B,'b',c.id)}
+          <button class="btn primary small" ${pronto?'':'disabled'} onclick="criarJogoChave('${c.id}')">➕ Criar</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+async function criarJogoChave(id){
+  const c = CHAVES.find(x=>x.id===id); if(!c) return;
+  const A = resolverSlot(c.a, c.mod), B = resolverSlot(c.b, c.mod);
+  const selA = $('cha_'+id), selB = $('chb_'+id);
+  const tA = A.ok ? A.time : (selA && selA.value ? selA.value : null);
+  const tB = B.ok ? B.time : (selB && selB.value ? selB.value : null);
+  if(!tA || !tB){ toast('Defina os dois lados primeiro'); return; }
+  if(tA===tB){ toast('Os dois lados não podem ser o mesmo time 😅'); return; }
+  if(!confirm('Criar "'+c.nome+'" ('+c.mod+'): '+tA+' × '+tB+', valendo '+c.pontos+' pts?')) return;
+  try{
+    await fsSalvar(COL_JOGOS, c.id, {nome:c.nome, modalidade:c.mod, timeA:tA, timeB:tB, dataHora:new Date(c.data),
+      travado:false, permiteEmpate:false, vencedor:null, ordem:100+CHAVES.indexOf(c), pontos:c.pontos, placarA:null, placarB:null}, true);
+    toast('🎉 '+c.nome+' criado — palpites abertos!');
+    await carregar(true);
+  }catch(e){ toast('Erro: '+e.message, 4000); }
+}
+
 /* ================= admin ================= */
 let editandoJogo = null, editandoTime = null;
 function abrirAdmin(){
@@ -609,6 +722,7 @@ function renderAdmin(){
       <button class="btn primary" onclick="salvarJogo()" ${times.length<2?'disabled':''}>${editandoJogo?'Salvar alterações':'Cadastrar jogo'} ✔</button>
     </div>
   </div>
+  ${cardChaveamento()}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <b>📋 Jogos cadastrados (${jogos.length})</b>
