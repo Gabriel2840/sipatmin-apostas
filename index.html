@@ -109,6 +109,7 @@
   <div class="tabs">
     <button id="tabJogos" class="on" onclick="abrirTab('jogos')">🎯 Jogos</button>
     <button id="tabRanking" onclick="abrirTab('ranking')">🏆 Ranking</button>
+    <button id="tabAdmin" style="display:none" onclick="abrirTab('admin')">🏁 Resultados</button>
   </div>
 
   <div class="idbar" id="idbar" style="display:none">
@@ -303,12 +304,14 @@ async function loginAdmin(){
     sessionStorage.setItem('ap_adm', JSON.stringify(adm));
     $('admSenha').value='';
     fecharModal('modalAdm');
+    mostrarTabAdmin();
     toast(adm.operador ? 'Bem-vindo! Modo lançamento de resultados 🏁' : 'Bem-vindo, organizador! 🔓');
     abrirTab('admin');
   }catch(e){ toast(e.message, 4000); }
   finally{ $('btnLogin').disabled = false; }
 }
-function sairAdmin(){ adm=null; sessionStorage.removeItem('ap_adm'); toast('Sessão encerrada'); abrirTab('jogos'); }
+function mostrarTabAdmin(){ $('tabAdmin').style.display = adm ? '' : 'none'; }
+function sairAdmin(){ adm=null; sessionStorage.removeItem('ap_adm'); mostrarTabAdmin(); toast('Sessão encerrada'); abrirTab('jogos'); }
 
 /* ================= dados ================= */
 async function carregar(silencioso){
@@ -429,6 +432,7 @@ function abrirTab(t){
   tabAtual = t;
   $('tabJogos').classList.toggle('on', t==='jogos');
   $('tabRanking').classList.toggle('on', t==='ranking');
+  $('tabAdmin').classList.toggle('on', t==='admin');
   $('viewJogos').style.display   = t==='jogos'   ? '' : 'none';
   $('viewRanking').style.display = t==='ranking' ? '' : 'none';
   $('viewAdmin').style.display   = t==='admin'   ? '' : 'none';
@@ -754,6 +758,7 @@ async function baixarCSV(){
 /* ================= init ================= */
 (function(){
   try{ adm = JSON.parse(sessionStorage.getItem('ap_adm')); }catch(e){ adm=null; }
+  mostrarTabAdmin();
   carregarIdentidade();
   carregar();
   if(!eu) setTimeout(abrirIdentidade, 600);
